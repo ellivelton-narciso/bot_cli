@@ -51,3 +51,8 @@ type PriceResponse struct {
 	Price  string `json:"price"`
 	Time   int64  `json:"time"`
 }
+
+type DeleteResponse struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}

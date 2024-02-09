@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin string, side string, orderType string, quantity float64, price float64, roi float64, alavancagem int) (string, error) {
+func CriarOrdem(coin string, side string, orderType string, quantity float64, price float64, stopPrice float64) (string, error) {
 	if orderType != "STOP" && orderType != "STOP_MARKET" && orderType != "TAKE_PROFIT" && orderType != "TAKE_PROFIT_MARKET" {
 		return "", errors.New("orderType deve ser 'STOP', 'TAKE_PROFIT', 'STOP_MARKET', 'TAKE_PROFIT_MARKET', 'LIIMT' ou 'MARKET'")
 	}
@@ -97,21 +97,12 @@ func CriarOrdem(coin string, side string, orderType string, quantity float64, pr
 		fmt.Println("Entrada em "+side2+", preço de entrada: "+priceLastOrder+" "+config.BaseCoin+". Quantidade em "+coin+" adquirida: ", quantity)
 	}
 
-	priceLOFloat, err := strconv.ParseFloat(priceLastOrder, 64)
-	if err != nil {
-		fmt.Println("Erro ao converter a string:", err)
-		return "", nil
-	}
-
 	var sideReverse string
 
-	var stopPrice float64
 	if side == "BUY" {
-		stopPrice = priceLOFloat * (1 + calcularROIAlavancado(roi, float64(alavancagem))/100)
 		sideReverse = "SELL"
 	}
 	if side == "SELL" {
-		stopPrice = priceLOFloat * (1 - calcularROIAlavancado(roi, float64(alavancagem))/100)
 		sideReverse = "BUY"
 	}
 

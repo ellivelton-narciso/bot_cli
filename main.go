@@ -1,46 +1,81 @@
 package main
 
 import (
-	"binance_robot/config"
 	"binance_robot/criar_ordem"
+	"binance_robot/deletar_ordens"
 	"binance_robot/listar_ordens"
 	"binance_robot/models"
-	"encoding/json"
+	"binance_robot/util"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"math"
-	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
 
 func main() {
-	var currentCoin string
-	var value float64
-	var currentAlavancagem int
-	var porcentagemLucro float64
+
+	var (
+		currentCoin     string
+		value           float64
+		margemInferior  float64
+		margemSuperior  float64
+		quantidadeGrids int
+	)
 
 	fmt.Print("Digite a moeda (ex: BTC): ")
 	fmt.Scanln(&currentCoin)
 	fmt.Print("Digite a quantidade em USDT: ")
 	fmt.Scanln(&value)
-	fmt.Print("Digite a alavancagem: ")
-	fmt.Scanln(&currentAlavancagem)
-	fmt.Print("Qual seu Take Profit (ROI %): ")
-	fmt.Scanln(&porcentagemLucro)
+
+	fmt.Println("Qual sua margem inferior: ")
+	fmt.Scanln(&margemInferior)
+	fmt.Println("Qual sua margem superior: ")
+	fmt.Scanln(&margemSuperior)
+	fmt.Println("Qual a quantidade de grids: ")
+	fmt.Scanln(&quantidadeGrids)
 
 	fmt.Println("Para parar as transações pressione Ctrl + C")
 
-	currentQuantity, _ := convertUSDT(currentCoin, value)
-	_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "TAKE_PROFIT_MARKET", currentQuantity, 0, porcentagemLucro, currentAlavancagem)
+	margensSuperiores, margensInferiores := util.CalcularMargens(margemInferior, margemSuperior, quantidadeGrids)
+
+	precoAtual, err := util.PrecoAtual(currentCoin)
 	if err != nil {
-		log.Println("Erro ao criar Ordem de Compra: ", err)
+		fmt.Println("Erro ao obter o preço atual de ", currentCoin)
 	}
-	_, err = criar_ordem.CriarOrdem(currentCoin, "BUY", "TAKE_PROFIT_MARKET", currentQuantity, 0, porcentagemLucro, currentAlavancagem)
-	if err != nil {
-		log.Println("Erro ao criar Ordem de Compra: ", err)
+
+	fmt.Println(margensSuperiores)
+	fmt.Println(margensInferiores)
+
+	currentQuantity, _ := util.ConvertBaseCoin(currentCoin, value)
+	fmt.Println(precoAtual)
+
+	for i := 0; i < quantidadeGrids; i++ {
+		if precoAtual < margensInferiores[i] {
+			fmt.Printf("Entrar em posição longa na grid %d\n", i+1)
+			if i == 9 {
+				fmt.Println("O ativo atingiu o limite máximo definido")
+				break
+			}
+			_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "TAKE_PROFIT", currentQuantity/float64(quantidadeGrids), margensInferiores[i], margensInferiores[i+1])
+			if err != nil {
+				log.Println("Erro ao criar Ordem de Compra: ", err)
+			}
+			break
+		}
+	}
+	for i := 0; i < quantidadeGrids; i++ {
+		if precoAtual < margensSuperiores[i] {
+			fmt.Printf("Entrar em posição curta na grid %d\n", i+1)
+			if i == 0 {
+				fmt.Println("O ativo atingiu o limite mínimo definido")
+				break
+			}
+			_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "TAKE_PROFIT", currentQuantity/float64(quantidadeGrids), margensSuperiores[i], margensSuperiores[i-1])
+			if err != nil {
+				log.Println("Erro ao criar Ordem de Compra: ", err)
+			}
+			break
+
+		}
 	}
 
 	for {
@@ -56,71 +91,114 @@ func main() {
 				break
 			}
 		}
-
 		var positionSide string
 		if filteredOrders != nil {
+			precoAtual, err = util.PrecoAtual(currentCoin)
 			if filteredOrders.PositionSide == "SHORT" {
-				positionSide = "SELL"
-				fmt.Println("Ordem concluída, ", filteredOrders.PositionSide)
-			} else if filteredOrders.PositionSide == "LONG" {
 				positionSide = "BUY"
+				fmt.Println("Ordem concluída, ", filteredOrders.PositionSide)
+
+				_, err := deletar_ordens.DeletarOrdens(currentCoin)
+				if err != nil {
+					return
+				}
+				_, err = deletar_ordens.CloseAllPosition(currentCoin, positionSide, fmt.Sprint(precoAtual))
+				if err != nil {
+					return
+				}
+
+				for i := 0; i < quantidadeGrids; i++ {
+					if precoAtual < margensSuperiores[i] {
+						fmt.Printf("Entrar em posição curta na grid %d\n", i+1)
+						if i == 0 {
+							fmt.Println("O ativo atingiu o limite mínimo definido")
+							break
+						}
+						_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "TAKE_PROFIT", currentQuantity/float64(quantidadeGrids), margensSuperiores[i], margensSuperiores[i-1])
+						if err != nil {
+							log.Println("Erro ao criar Ordem de Compra: ", err)
+						}
+						break
+
+					}
+				}
+				for i := 0; i < quantidadeGrids; i++ {
+					if precoAtual < margensInferiores[i] {
+						fmt.Printf("Entrar em posição longa na grid %d\n", i+1)
+						if i == 9 {
+							fmt.Println("O ativo atingiu o limite máximo definido")
+							break
+						}
+						_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "TAKE_PROFIT", currentQuantity/float64(quantidadeGrids), margensInferiores[i], margensInferiores[i+1])
+						if err != nil {
+							log.Println("Erro ao criar Ordem de Compra: ", err)
+						}
+						break
+					}
+				}
+
+			} else if filteredOrders.PositionSide == "LONG" {
+				positionSide = "SELL"
 				fmt.Println("Ordem concluída: ", filteredOrders.PositionSide)
+
+				_, err := deletar_ordens.DeletarOrdens(currentCoin)
+				if err != nil {
+					return
+				}
+				_, err = deletar_ordens.CloseAllPosition(currentCoin, positionSide, fmt.Sprint(precoAtual))
+				if err != nil {
+					return
+				}
+
+				for i := 0; i < quantidadeGrids; i++ {
+					if precoAtual < margensSuperiores[i] {
+						fmt.Printf("Entrar em posição curta na grid %d\n", i+1)
+						if i == 0 {
+							fmt.Println("O ativo atingiu o limite mínimo definido")
+							break
+						}
+						_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "TAKE_PROFIT", currentQuantity/float64(quantidadeGrids), margensSuperiores[i], margensSuperiores[i-1])
+						if err != nil {
+							log.Println("Erro ao criar Ordem de Compra: ", err)
+						}
+						break
+
+					}
+				}
+				for i := 0; i < quantidadeGrids; i++ {
+					if precoAtual < margensInferiores[i] {
+						fmt.Printf("Entrar em posição longa na grid %d\n", i+1)
+						if i == 9 {
+							fmt.Println("O ativo atingiu o limite máximo definido")
+							break
+						}
+						_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "TAKE_PROFIT", currentQuantity/float64(quantidadeGrids), margensInferiores[i], margensInferiores[i+1])
+						if err != nil {
+							log.Println("Erro ao criar Ordem de Compra: ", err)
+						}
+						break
+					}
+				}
+
 			}
-			_, err := criar_ordem.CriarOrdem(currentCoin, positionSide, "TAKE_PROFIT_MARKET", currentQuantity, 0, porcentagemLucro, currentAlavancagem)
+
 			if err != nil {
 				fmt.Println("Erro ao criar Ordem: ", err)
 			}
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 }
 
-func convertUSDT(coin string, value float64) (price float64, err error) {
+/*func main() {
 
-	config.ReadFile()
-
-	url := config.BaseURL + "fapi/v1/ticker/price?symbol=" + coin + config.BaseCoin
-	req, _ := http.NewRequest("GET", url, nil)
-
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Println("Erro ao acessar a API para converter: ", err)
-		return
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	atual, err := util.PrecoAtual("BTC")
 	if err != nil {
 		fmt.Println(err)
-		return
 	}
-
-	var priceResp models.PriceResponse
-	err = json.Unmarshal(body, &priceResp)
+	_, err = deletar_ordens.CloseAllPosition("BTC", "BUY", fmt.Sprint(atual))
 	if err != nil {
-		fmt.Println("Erro ao decodificar JSON:", err)
-		return
+		fmt.Println(err)
 	}
-
-	precision := getPrecision(priceResp.Price)
-
-	price, err = strconv.ParseFloat(priceResp.Price, 64)
-	if err != nil {
-		fmt.Println("Erro ao converter preço para float64:", err)
-		return
-	}
-
-	q := value / price
-	quantity := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
-
-	return quantity, nil
-}
-
-func getPrecision(number string) int {
-	parts := strings.Split(number, ".")
-	if len(parts) == 2 {
-		return len(parts[1])
-	}
-	return 0
-}
+}*/
