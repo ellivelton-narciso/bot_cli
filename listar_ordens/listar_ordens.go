@@ -2,13 +2,15 @@ package listar_ordens
 
 import (
 	"binance_robot/config"
+	"binance_robot/models"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-func ListarOrdens(coin string) (string, error) {
+func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 
 	config.ReadFile()
 
@@ -18,7 +20,7 @@ func ListarOrdens(coin string) (string, error) {
 	apiParams := "symbol=" + coin + "" + config.BaseCoin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 
-	url := config.BaseURL + "fapi/v1/openOrders?" + apiParams + "&signature=" + signature
+	url := config.BaseURL + "fapi/v2/positionRisk?" + apiParams + "&signature=" + signature
 
 	req, _ := http.NewRequest("GET", url, nil)
 
@@ -27,15 +29,21 @@ func ListarOrdens(coin string) (string, error) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(body), nil
+	var response []models.CryptoPosition
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 
 }

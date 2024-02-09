@@ -2,32 +2,47 @@ package criar_ordem
 
 import (
 	"binance_robot/config"
+	"binance_robot/listar_ordens"
+	"binance_robot/models"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-func CriarOrdem(coin string, side string, orderType string, quantity float64, price float64, roi float64) (string, error) {
-
+func CriarOrdem(coin string, side string, orderType string, quantity float64, price float64, roi float64, alavancagem int) (string, error) {
 	if orderType != "STOP" && orderType != "STOP_MARKET" && orderType != "TAKE_PROFIT" && orderType != "TAKE_PROFIT_MARKET" {
 		return "", errors.New("orderType deve ser 'STOP', 'TAKE_PROFIT', 'STOP_MARKET', 'TAKE_PROFIT_MARKET', 'LIIMT' ou 'MARKET'")
+	}
+
+	var side2 string
+
+	if side == "BUY" {
+		side2 = "LONG"
+	} else if side == "SELL" {
+		side2 = "SHORT"
 	}
 
 	config.ReadFile()
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&side=" + side + "&quantity=" + fmt.Sprint(quantity)
+	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&side=" + side + "&quantity=" + fmt.Sprint(quantity) + "&positionSide=" + side2
+
+	var currentType string
 
 	if orderType == "STOP" || orderType == "TAKE_PROFIT" { // Ordem Limit
-		apiParamsOrdem += "&type=LIMIT&price=" + fmt.Sprint(price)
+		currentType = "LIMIT"
+		apiParamsOrdem += "&price=" + fmt.Sprint(price) + "&type=" + currentType + "&timeInForce=GTC"
 	}
 
 	if orderType == "STOP_MARKET" || orderType == "TAKE_PROFIT_MARKET" { // Ordem Market
-		apiParamsOrdem += "&type=MARKET"
+		currentType = "MARKET"
+		apiParamsOrdem += "&type=" + currentType
 	}
 
 	apiParamsOrdem += "&timestamp=" + strconv.FormatInt(timestamp, 10)
@@ -36,47 +51,107 @@ func CriarOrdem(coin string, side string, orderType string, quantity float64, pr
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
 
-	req, _ := http.NewRequest("POST", urlOrdem, nil)
+	req, err := http.NewRequest("POST", urlOrdem, nil)
+	if err != nil {
+		return "Primeira Ordem: ", err
+	}
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
 
-	res, _ := http.DefaultClient.Do(req)
-
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "Primeira Ordem: ", err
+	}
 	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
 
-	fmt.Println(res)
-	fmt.Println(string(body))
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "Primeira Ordem: ", err
+	}
+
+	var response models.ResponseOrderStruct
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return "Primeira Ordem: ", err
+	}
+
+	ordensAbertas, err := listar_ordens.ListarOrdens(coin)
+	if err != nil {
+		return "", err
+	}
+
+	var ordemFiltrada *models.CryptoPosition
+	for _, ordem := range ordensAbertas {
+		if ordem.PositionSide == side2 {
+			ordemFiltrada = &ordem
+			break
+		}
+	}
+
+	var priceLastOrder string
+	if ordemFiltrada == nil {
+		fmt.Println("Ordem não encontrada: ")
+	} else {
+		priceLastOrder = ordemFiltrada.EntryPrice
+		fmt.Println("Entrada em "+side2+", preço de entrada: "+priceLastOrder+" "+config.BaseCoin+". Quantidade em "+coin+" adquirida: ", quantity)
+	}
+
+	priceLOFloat, err := strconv.ParseFloat(priceLastOrder, 64)
+	if err != nil {
+		fmt.Println("Erro ao converter a string:", err)
+		return "", nil
+	}
 
 	var sideReverse string
 
+	var stopPrice float64
 	if side == "BUY" {
+		stopPrice = priceLOFloat * (1 + calcularROIAlavancado(roi, float64(alavancagem))/100)
 		sideReverse = "SELL"
 	}
 	if side == "SELL" {
+		stopPrice = priceLOFloat * (1 - calcularROIAlavancado(roi, float64(alavancagem))/100)
 		sideReverse = "BUY"
 	}
 
-	stopPrice := price + (price / 100 * roi)
-
-	apiParamsProfit := "symbol=" + coin + "" + config.BaseCoin + "&side=" + sideReverse + "&quantity=" + fmt.Sprint(quantity) + "&type=" + orderType + "&stopPrice=" + fmt.Sprint(stopPrice) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsProfit := "symbol=" + coin + "" + config.BaseCoin + "&side=" + sideReverse + "&positionSide=" + side2 + "&quantity=" + fmt.Sprint(quantity) + "&type=" + orderType + "&stopPrice=" + fmt.Sprint(limitarCasasDecimais(stopPrice, 2)) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	if orderType == "STOP" || orderType == "TAKE_PROFIT" { // Ordem Limit
+		apiParamsProfit += "&price=" + fmt.Sprint(price) + "&timeInForce=GTC"
+	}
 	signatureProfit := config.ComputeHmacSha256(config.SecretKey, apiParamsProfit)
 
 	urlProfit := config.BaseURL + "fapi/v1/order?" + apiParamsProfit + "&signature=" + signatureProfit
 
-	reqProfit, _ := http.NewRequest("POST", urlProfit, nil)
+	reqProfit, err := http.NewRequest("POST", urlProfit, nil)
+	if err != nil {
+		return "Segunda Ordem: ", err
+	}
 
 	reqProfit.Header.Add("Content-Type", "application/json")
 	reqProfit.Header.Add("X-MBX-APIKEY", config.ApiKey)
 
-	resProfit, _ := http.DefaultClient.Do(reqProfit)
-
+	resProfit, err := http.DefaultClient.Do(reqProfit)
+	if err != nil {
+		return "Segunda Ordem: ", err
+	}
 	defer resProfit.Body.Close()
-	bodyProfit, _ := ioutil.ReadAll(resProfit.Body)
 
-	fmt.Println(resProfit)
-	fmt.Println(string(bodyProfit))
+	_, err = ioutil.ReadAll(resProfit.Body)
+	if err != nil {
+		return "Segunda Ordem: ", err
+	}
 
 	return string(body), nil
+}
+
+func limitarCasasDecimais(numero float64, casasDecimais int) float64 {
+	multiplicador := math.Pow(10, float64(casasDecimais))
+	return math.Round(numero*multiplicador) / multiplicador
+}
+
+func calcularROIAlavancado(roi float64, alavancagem float64) float64 {
+	fatorAlavancagem := 1 / alavancagem
+	roiAjustado := roi * fatorAlavancagem
+	return roiAjustado
 }
