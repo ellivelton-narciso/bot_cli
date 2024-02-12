@@ -133,7 +133,7 @@ func CriarOrdem(coin string, side string, orderType string, quantity float64, pr
 		return "Segunda Ordem: ", err
 	}
 
-	return string(body), nil
+	return strconv.FormatInt(response.OrderId, 10), nil
 }
 
 func limitarCasasDecimais(numero float64, casasDecimais int) float64 {

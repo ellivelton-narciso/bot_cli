@@ -2,6 +2,7 @@ package deletar_ordens
 
 import (
 	"binance_robot/config"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -34,24 +35,24 @@ func DeletarOrdens(coin string) (string, error) {
 	return "", nil
 }
 
-func CloseAllPosition(coin string, side string, stopPrice string) (string, error) {
+func CloseAllPosition(coin string, side string, orderID string, quantity string) (string, error) {
 	config.ReadFile()
 
-	var side2 string
+	/*var side2 string
 
 	if side == "BUY" {
 		side2 = "LONG"
 	} else if side == "SELL" {
 		side2 = "SHORT"
-	}
+	}*/
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
 
-	apiParamsOrdem := "symbol=" + coin + config.BaseCoin + "&side=" + side + "&type=TAKE_PROFIT_MARKET&positionSide=" + side2 + "&stopPrice=" + stopPrice + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&orderId=" + orderID + "&quantity=" + quantity + "&side=" + side + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
-	req, err := http.NewRequest("POST", urlOrdem, nil)
+	req, err := http.NewRequest("PUT", urlOrdem, nil)
 	if err != nil {
 		return "Aqui", err
 	}
@@ -64,6 +65,9 @@ func CloseAllPosition(coin string, side string, stopPrice string) (string, error
 		return "Erro aq", err
 	}
 	defer res.Body.Close()
-	return "Foi", nil
+
+	body, err := ioutil.ReadAll(res.Body)
+
+	return string(body), nil
 
 }
