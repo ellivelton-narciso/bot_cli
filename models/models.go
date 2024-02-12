@@ -56,3 +56,10 @@ type DeleteResponse struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 }
+type Historico struct {
+	Value string `json:"value"`
+}
+
+type Bots struct {
+	Coin string `json:"coin"`
+}
