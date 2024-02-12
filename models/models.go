@@ -57,6 +57,7 @@ type DeleteResponse struct {
 	Msg  string `json:"msg"`
 }
 type Historico struct {
+	Id    int64  `json:"id"`
 	Value string `json:"value"`
 }
 
