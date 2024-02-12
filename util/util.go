@@ -31,7 +31,7 @@ func CalcularMargens(precoMin, precoMax float64, numGrids int) ([]float64, []flo
 	return margensSuperiores, margensInferiores
 }
 
-func ConvertBaseCoin(coin string, value float64) (price float64, err error) {
+func ConvertBaseCoin(coin string, value float64) (price float64) {
 
 	config.ReadFile()
 
@@ -69,7 +69,7 @@ func ConvertBaseCoin(coin string, value float64) (price float64, err error) {
 	q := value / price
 	quantity := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
 
-	return quantity, nil
+	return quantity
 }
 
 func PrecoAtual(coin string) (price float64, err error) {
