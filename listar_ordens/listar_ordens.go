@@ -2,9 +2,12 @@ package listar_ordens
 
 import (
 	"binance_robot/config"
+	"binance_robot/database"
 	"binance_robot/models"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -84,4 +87,45 @@ func PositionAmt(coin string) (string, error) {
 
 	return response[0].PositionAmt, nil
 
+}
+
+func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
+	config.ReadFile()
+
+	rows, err := database.DB.Queryx("SELECT * FROM historico")
+	if err != nil {
+		log.Fatal(err)
+	}
+	var historicos []models.Historico
+	for rows.Next() {
+		var historico models.Historico
+		err := rows.StructScan(&historico)
+		if err != nil {
+			fmt.Println("\n Erro ao buscar historico da DB - ", err)
+			continue
+		}
+		historicos = append(historicos, historico)
+	}
+	defer rows.Close()
+
+	ultimos := historicos[60-count:]
+
+	var priceRespAll []models.PriceResponse
+	for _, item := range ultimos {
+		var data []models.PriceResponse
+		if err := json.Unmarshal([]byte(item.Value), &data); err != nil {
+			fmt.Println("\n Erro ao decodificar JSON - ", err)
+			continue
+		}
+		priceRespAll = append(priceRespAll, data...)
+	}
+
+	var priceResp []models.PriceResponse
+	for _, item := range priceRespAll {
+		if item.Symbol == coin+config.BaseCoin {
+			priceResp = append(priceResp, item)
+		}
+	}
+
+	return priceResp
 }
