@@ -3,6 +3,7 @@ package criar_ordem
 import (
 	"binance_robot/config"
 	"binance_robot/database"
+	"binance_robot/listar_ordens"
 	"binance_robot/models"
 	"encoding/json"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin string, side string, quantity string, margemMaior string, margemMenor string) (string, error) {
+func CriarOrdem(coin string, side string, quantity string) (string, error) {
 	var side2 string
 
 	if side == "BUY" {
@@ -56,31 +57,17 @@ func CriarOrdem(coin string, side string, quantity string, margemMaior string, m
 	if err != nil {
 		return "", err
 	}
-	quantityFloat, _ := strconv.ParseFloat(quantity, 64)
-	margemMaiorFloat, _ := strconv.ParseFloat(margemMaior, 64)
-	margemMenorFloat, _ := strconv.ParseFloat(margemMenor, 64)
+	fmt.Println(string(body))
 
-	if side == "BUY" {
-		err = FecharOrdem(coin, side, quantityFloat, margemMaiorFloat, "TAKE_PROFIT_MARKET")
-		if err != nil {
-			log.Panic(err)
-		}
-		err = FecharOrdem(coin, side, quantityFloat, margemMenorFloat, "STOP_MARKET")
-		if err != nil {
-			log.Panic(err)
-		}
-	} else if side == "SELL" {
-		err = FecharOrdem(coin, side, quantityFloat, margemMenorFloat, "TAKE_PROFIT_MARKET")
-		if err != nil {
-			log.Panic(err)
-		}
-		err = FecharOrdem(coin, side, quantityFloat, margemMaiorFloat, "STOP_MARKET")
-		if err != nil {
-			log.Panic(err)
+	allOrders, _ := listar_ordens.ListarOrdens(coin)
+	var entryPrice string
+	for _, item := range allOrders {
+		if item.PositionSide == side {
+			entryPrice = item.EntryPrice
 		}
 	}
 
-	return strconv.FormatInt(response.OrderId, 10), nil
+	return entryPrice, nil
 }
 
 func limitarCasasDecimais(numero float64, casasDecimais int) float64 {
@@ -140,6 +127,7 @@ func FecharOrdem(coin string, side string, quantity float64, stopPrice float64, 
 	if err != nil {
 		return err
 	}
+
 	fmt.Println(string(body))
 
 	return err

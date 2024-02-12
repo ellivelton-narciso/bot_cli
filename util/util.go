@@ -58,7 +58,7 @@ func ConvertBaseCoin(coin string, value float64) (price float64) {
 		return
 	}
 
-	precision := GetPrecision(priceResp.Price)
+	//precision := GetPrecision(priceResp.Price)
 
 	price, err = strconv.ParseFloat(priceResp.Price, 64)
 	if err != nil {
@@ -67,7 +67,7 @@ func ConvertBaseCoin(coin string, value float64) (price float64) {
 	}
 
 	q := value / price
-	quantity := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
+	quantity := math.Round(q*math.Pow(10, float64(0))) / math.Pow(10, float64(0))
 
 	return quantity
 }
@@ -110,7 +110,25 @@ func PrecoAtual(coin string) (price float64, err error) {
 func GetPrecision(number string) int {
 	parts := strings.Split(number, ".")
 	if len(parts) == 2 {
-		return len(parts[1])
+		if len(parts[1]) > 4 {
+			return 4
+		} else {
+			return len(parts[1])
+		}
 	}
 	return 0
+}
+
+func removerZeros(number string) string {
+	var newValue string
+	foundNonZero := false
+	for i := len(number) - 1; i >= 0; i-- {
+		if number[i] != '0' {
+			foundNonZero = true
+		}
+		if foundNonZero {
+			newValue = string(number[i]) + newValue
+		}
+	}
+	return newValue
 }
