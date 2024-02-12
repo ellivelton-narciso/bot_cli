@@ -2,17 +2,19 @@ package criar_ordem
 
 import (
 	"binance_robot/config"
+	"binance_robot/database"
 	"binance_robot/models"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-func CriarOrdem(coin string, side string, quantity string) (string, error) {
+func CriarOrdem(coin string, side string, quantity string, margemMaior string, margemMenor string) (string, error) {
 	var side2 string
 
 	if side == "BUY" {
@@ -54,8 +56,29 @@ func CriarOrdem(coin string, side string, quantity string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	quantityFloat, _ := strconv.ParseFloat(quantity, 64)
+	margemMaiorFloat, _ := strconv.ParseFloat(margemMaior, 64)
+	margemMenorFloat, _ := strconv.ParseFloat(margemMenor, 64)
 
-	fmt.Println(string(body))
+	if side == "BUY" {
+		err = FecharOrdem(coin, side, quantityFloat, margemMaiorFloat, "TAKE_PROFIT_MARKET")
+		if err != nil {
+			log.Panic(err)
+		}
+		err = FecharOrdem(coin, side, quantityFloat, margemMenorFloat, "STOP_MARKET")
+		if err != nil {
+			log.Panic(err)
+		}
+	} else if side == "SELL" {
+		err = FecharOrdem(coin, side, quantityFloat, margemMenorFloat, "TAKE_PROFIT_MARKET")
+		if err != nil {
+			log.Panic(err)
+		}
+		err = FecharOrdem(coin, side, quantityFloat, margemMaiorFloat, "STOP_MARKET")
+		if err != nil {
+			log.Panic(err)
+		}
+	}
 
 	return strconv.FormatInt(response.OrderId, 10), nil
 }
@@ -65,13 +88,7 @@ func limitarCasasDecimais(numero float64, casasDecimais int) float64 {
 	return math.Round(numero*multiplicador) / multiplicador
 }
 
-func calcularROIAlavancado(roi float64, alavancagem float64) float64 {
-	fatorAlavancagem := 1 / alavancagem
-	roiAjustado := roi * fatorAlavancagem
-	return roiAjustado
-}
-
-func FecharOrdem(coin string, side string, quantity float64, stopPrice float64, orderType string) (string, error) {
+func FecharOrdem(coin string, side string, quantity float64, stopPrice float64, orderType string) error {
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
@@ -99,7 +116,8 @@ func FecharOrdem(coin string, side string, quantity float64, stopPrice float64, 
 
 	reqProfit, err := http.NewRequest("POST", urlProfit, nil)
 	if err != nil {
-		return "Segunda Ordem: ", err
+		fmt.Println("Erro ao fechar ordem: ", err)
+		return err
 	}
 
 	reqProfit.Header.Add("Content-Type", "application/json")
@@ -107,14 +125,72 @@ func FecharOrdem(coin string, side string, quantity float64, stopPrice float64, 
 
 	resProfit, err := http.DefaultClient.Do(reqProfit)
 	if err != nil {
-		return "Segunda Ordem: ", err
+		fmt.Println("Erro ao fechar ordem: ", err)
+		return err
 	}
 	defer resProfit.Body.Close()
 
-	_, err = ioutil.ReadAll(resProfit.Body)
+	body, err := ioutil.ReadAll(resProfit.Body)
 	if err != nil {
-		return "Segunda Ordem: ", err
+		fmt.Println("Erro ao fechar ordem: ", err)
+		return err
+	}
+	var response models.ResponseOrderStruct
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(body))
+
+	return err
+}
+
+func EnviarCoinDB(coin string) {
+	config.ReadFile()
+
+	basecoin := coin + config.BaseCoin
+
+	rows, err := database.DB.Queryx("SELECT * FROM bots")
+	if err != nil {
+		log.Fatal(err)
+	}
+	var bots []models.Bots
+	for rows.Next() {
+		var bot models.Bots
+		err := rows.StructScan(&bot)
+		if err != nil {
+			fmt.Println("\n erro38 - ", err)
+			continue
+		}
+		bots = append(bots, bot)
 	}
 
-	return "", nil
+	for _, preco := range bots {
+		if preco.Coin == basecoin {
+			return
+		}
+	}
+
+	_, err = database.DB.Queryx("INSERT INTO bots (coin) VALUES (?)", basecoin)
+
+	if err != nil {
+		fmt.Println("\n Erro ao inserir coin na DB: ", err)
+	}
+
+	return
+}
+
+func RemoverCoinDB(coin string) error {
+	config.ReadFile()
+
+	basecoin := coin + config.BaseCoin
+
+	_, err := database.DB.Queryx("DELETE FROM bots WHERE coin = ?", basecoin)
+
+	if err != nil {
+		fmt.Println("\n Erro ao inserir coin na DB: ", err)
+		return err
+	}
+	return nil
+
 }
