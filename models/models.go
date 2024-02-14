@@ -51,3 +51,16 @@ type PriceResponse struct {
 	Price  string `json:"price"`
 	Time   int64  `json:"time"`
 }
+
+type DeleteResponse struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+type Historico struct {
+	Id    int64  `json:"id"`
+	Value string `json:"value"`
+}
+
+type Bots struct {
+	Coin string `json:"coin"`
+}
