@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func ConvertBaseCoin(coin string, value float64) (price float64) {
+func ConvertBaseCoin(coin string, value float64) float64 {
 
 	config.ReadFile()
 
@@ -22,29 +22,26 @@ func ConvertBaseCoin(coin string, value float64) (price float64) {
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Println("Erro ao acessar a API para converter: ", err)
-		return
+
 	}
 
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		fmt.Println(err)
-		return
 	}
 
 	var priceResp models.PriceResponse
 	err = json.Unmarshal(body, &priceResp)
 	if err != nil {
 		fmt.Println("Erro ao decodificar JSON:", err)
-		return
 	}
 
 	precision := GetPrecision(priceResp.Price)
 
-	price, err = strconv.ParseFloat(priceResp.Price, 64)
+	price, err := strconv.ParseFloat(priceResp.Price, 64)
 	if err != nil {
 		fmt.Println("Erro ao converter preço para float64:", err)
-		return
 	}
 
 	q := value / price

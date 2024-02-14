@@ -13,13 +13,13 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin string, side string, positionSide string, quantity string) (string, error) {
+func CriarOrdem(coin string, side string, quantity string) (string, error) {
 
 	config.ReadFile()
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&positionSide=" + positionSide + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
@@ -42,6 +42,8 @@ func CriarOrdem(coin string, side string, positionSide string, quantity string) 
 	if err != nil {
 		return "", err
 	}
+
+	//fmt.Println(string(body))
 
 	var response models.ResponseOrderStruct
 	err = json.Unmarshal(body, &response)
