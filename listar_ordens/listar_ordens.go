@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -51,81 +50,16 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 
 }
 
-func PositionAmt(coin string, side string) (string, error) {
-	config.ReadFile()
-
-	now := time.Now()
-	timestamp := now.UnixMilli()
-
-	apiParams := "timestamp=" + strconv.FormatInt(timestamp, 10)
-	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
-
-	url := config.BaseURL + "fapi/v2/positionRisk?" + apiParams + "&signature=" + signature
-
-	req, _ := http.NewRequest("GET", url, nil)
-
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var response []models.CryptoPosition
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return "", err
-	}
-
-	if side == "BUY" {
-		side = "LONG"
-	} else if side == "SELL" {
-		side = "SHORT"
-	}
-
-	var positionAmt string
-	for _, pos := range response {
-		if pos.Symbol == coin+config.BaseCoin && pos.PositionSide == side {
-			positionAmt = pos.PositionAmt
-			break
-		}
-	}
-
-	return positionAmt, nil
-}
-
 func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
 	config.ReadFile()
 
-	rows, err := database.DB.Queryx("SELECT * FROM historico")
-	if err != nil {
-		log.Fatal(err)
-	}
 	var historicos []models.Historico
-	for rows.Next() {
-		var historico models.Historico
-		err := rows.StructScan(&historico)
-		if err != nil {
-			fmt.Println("\n Erro ao buscar historico da DB - ", err)
-			continue
-		}
-		historicos = append(historicos, historico)
-	}
-	defer rows.Close()
-
-	ultimos := historicos[60-count:]
+	database.DB.Order("created_at DESC").Limit(int(count)).Find(&historicos)
 
 	var priceRespAll []models.PriceResponse
-	for _, item := range ultimos {
+	for _, historico := range historicos {
 		var data []models.PriceResponse
-		if err := json.Unmarshal([]byte(item.Value), &data); err != nil {
+		if err := json.Unmarshal([]byte(historico.Value), &data); err != nil {
 			fmt.Println("\n Erro ao decodificar JSON - ", err)
 			continue
 		}

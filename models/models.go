@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type ResponseOrderStruct struct {
 	OrderId                 int64  `json:"orderId"`
 	Symbol                  string `json:"symbol"`
@@ -57,10 +59,15 @@ type DeleteResponse struct {
 	Msg  string `json:"msg"`
 }
 type Historico struct {
-	Id    int64  `json:"id"`
-	Value string `json:"value"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Value     string    `gorm:"column:value" json:"value"`
+	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
 }
 
 type Bots struct {
 	Coin string `json:"coin"`
+}
+
+func (Historico) TableName() string {
+	return "historico"
 }

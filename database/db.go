@@ -3,32 +3,32 @@ package database
 import (
 	"binance_robot/config"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"log"
 )
 
 var (
 	err error
-	DB  *sqlx.DB
+	DB  *gorm.DB
 )
 
 func DBCon() {
 	fmt.Println("\nConectando ao MySQL...")
 	config.ReadFile()
-	con := config.User + ":" + config.Pass + "@tcp(" + config.Host + ":" + config.Port + ")/" + config.DBname
-	DB, err = sqlx.Connect("mysql", con)
+	con := config.User + ":" + config.Pass + "@tcp(" + config.Host + ":" + config.Port + ")/" + config.DBname + "?charset=utf8mb4&parseTime=True&loc=Local"
+	var err error
+	DB, err = gorm.Open(mysql.Open(con), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		log.Panic("Erro ao conectar com o banco de dados.")
 	}
 
-	err = DB.Ping()
-	if err != nil {
-		panic(err)
-	}
 	fmt.Println("Conexão com MySQL efetuada com sucesso!")
 }
 
-func GetDatabase() *sqlx.DB {
+func GetDatabase() *gorm.DB {
 	return DB
 }

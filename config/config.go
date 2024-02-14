@@ -61,10 +61,3 @@ func ComputeHmacSha256(secret string, message string) string {
 	h.Write([]byte(message))
 	return hex.EncodeToString(h.Sum(nil))
 }
-
-func signPayload(timestamp, payload string, secretKey []byte) string {
-	message := fmt.Sprintf("%s%s", timestamp, payload)
-	h := hmac.New(sha256.New, secretKey)
-	h.Write([]byte(message))
-	return hex.EncodeToString(h.Sum(nil))
-}

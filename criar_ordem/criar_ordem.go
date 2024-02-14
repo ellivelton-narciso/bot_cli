@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -58,7 +57,7 @@ func CriarOrdem(coin string, side string, positionSide string, quantity string) 
 		}
 	}
 
-	return entryPrice, nil
+	return entryPrice, err
 }
 
 func EnviarCoinDB(coin string) {
@@ -66,30 +65,13 @@ func EnviarCoinDB(coin string) {
 
 	basecoin := coin + config.BaseCoin
 
-	rows, err := database.DB.Queryx("SELECT * FROM bots")
-	if err != nil {
-		log.Fatal(err)
-	}
-	var bots []models.Bots
-	for rows.Next() {
-		var bot models.Bots
-		err := rows.StructScan(&bot)
-		if err != nil {
-			fmt.Println("\n erro38 - ", err)
-			continue
-		}
-		bots = append(bots, bot)
+	var bot models.Bots
+	result := database.DB.Where("coin = ?", basecoin).First(&bot)
+	if result.RowsAffected > 0 {
+		return
 	}
 
-	for _, preco := range bots {
-		if preco.Coin == basecoin {
-			return
-		}
-	}
-
-	_, err = database.DB.Queryx("INSERT INTO bots (coin) VALUES (?)", basecoin)
-
-	if err != nil {
+	if err := database.DB.Create(&models.Bots{Coin: basecoin}).Error; err != nil {
 		fmt.Println("\n Erro ao inserir coin na DB: ", err)
 	}
 
@@ -101,18 +83,9 @@ func RemoverCoinDB(coin string) error {
 
 	basecoin := coin + config.BaseCoin
 
-	_, err := database.DB.Queryx("DELETE FROM bots WHERE coin = ?", basecoin)
-
-	if err != nil {
-		fmt.Println("\n Erro ao inserir coin na DB: ", err)
+	if err := database.DB.Where("coin = ?", basecoin).Delete(&models.Bots{}).Error; err != nil {
+		fmt.Println("\n Erro ao remover coin na DB: ", err)
 		return err
 	}
 	return nil
-
-}
-
-func CalcularROIAlavancado(roi float64, alavancagem float64) float64 {
-	fatorAlavancagem := 1 / alavancagem
-	roiAjustado := roi * fatorAlavancagem
-	return roiAjustado
 }
