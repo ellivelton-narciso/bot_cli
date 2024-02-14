@@ -8,7 +8,6 @@ import (
 	"binance_robot/models"
 	"binance_robot/util"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -29,6 +28,8 @@ func main() {
 		value          float64
 		margemInferior float64
 		margemSuperior float64
+		alavancagem    float64
+		roi            float64
 	)
 
 	fmt.Print("Digite a moeda (ex: BTC): ")
@@ -47,6 +48,11 @@ func main() {
 			fmt.Println("Deve entrar somente em LONG ou SHORT")
 		}
 	}
+	fmt.Println("Qual sua alavancagem: ")
+	fmt.Scanln(&alavancagem)
+
+	fmt.Println("Qual o ROI que deseja trabalhar: ")
+	fmt.Scanln(&roi)
 
 	fmt.Println("Qual sua margem inferior: ")
 	fmt.Scanln(&margemInferior)
@@ -57,12 +63,12 @@ func main() {
 	var currentValue float64
 
 	var ordemAtiva bool
-	var primeiraExecStop bool
+	var valueComprado float64
 	var primeiraExec bool
 	var entryPrice string
 	ordemAtiva = false
 	primeiraExec = true
-	primeiraExecStop = true
+	valueComprado = 0.0
 
 	// Encerrar a aplicação graciosamente
 	sigChan := make(chan os.Signal, 1)
@@ -93,88 +99,97 @@ func main() {
 		if !ordemAtiva {
 			if side == "BUY" {
 				if ultimos[4].Price >= ultimos[3].Price && ultimos[3].Price >= ultimos[2].Price && ultimos[2].Price >= ultimos[1].Price && ultimos[1].Price >= ultimos[0].Price {
-					currentValue = util.ConvertBaseCoin(currentCoin, value)
-					fmt.Println(currentValue)
-					entryPrice, _ = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue))
+					currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+					valueComprado = currentValue
+					fmt.Println("Entrada em LONG: " + ultimos[4].Price)
+					entryPrice, _ = criar_ordem.CriarOrdem(currentCoin, side, "LONG", fmt.Sprint(currentValue))
 					ordemAtiva = true
-					fmt.Println("Entrada em LONG")
 					fmt.Println(entryPrice)
-
-					if primeiraExecStop {
-						primeiraExecStop = false
-						err := criar_ordem.FecharOrdem(currentCoin, side, currentValue, margemSuperior, "TAKE_PROFIT_MARKET")
-						if err != nil {
-							log.Panic(err)
-						}
-						err = criar_ordem.FecharOrdem(currentCoin, side, currentValue, margemInferior, "STOP_MARKET")
-						if err != nil {
-							log.Panic(err)
-						}
-					}
-
 				}
 
 			} else if side == "SELL" {
 				if ultimos[4].Price <= ultimos[3].Price && ultimos[3].Price <= ultimos[2].Price && ultimos[2].Price <= ultimos[1].Price && ultimos[1].Price <= ultimos[0].Price {
-					currentValue = util.ConvertBaseCoin(currentCoin, value)
-					fmt.Println(currentValue)
-					entryPrice, _ = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue))
+					currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+					valueComprado = currentValue
+					fmt.Println("Entrada em SHORT: " + ultimos[4].Price)
+					entryPrice, _ = criar_ordem.CriarOrdem(currentCoin, side, "SHORT", fmt.Sprint(currentValue))
 					ordemAtiva = true
-					fmt.Println("Entrada em SHORT")
 					fmt.Println(entryPrice)
-
-					if primeiraExecStop {
-						primeiraExecStop = false
-						err := criar_ordem.FecharOrdem(currentCoin, side, currentValue, margemInferior, "TAKE_PROFIT_MARKET")
-						if err != nil {
-							log.Panic(err)
-						}
-						err = criar_ordem.FecharOrdem(currentCoin, side, currentValue, margemSuperior, "STOP_MARKET")
-						if err != nil {
-							log.Panic(err)
-						}
-					}
 
 				}
 			}
 		} else {
 			if side == "BUY" {
-				if ultimos[4].Price < ultimos[3].Price && ultimos[3].Price < ultimos[2].Price && ultimos[2].Price < ultimos[1].Price {
-					currentValue = util.ConvertBaseCoin(currentCoin, value)
-					stopPrice, _ := strconv.ParseFloat(ultimos[4].Price, 64)
-					fmt.Println(stopPrice)
-					// Falta calcular se valor de stop é maior que o valor de entrada
-					err := criar_ordem.FecharOrdem(currentCoin, side, currentValue, stopPrice, "TAKE_PROFIT_MARKET")
+				currentPrice, _ := strconv.ParseFloat(ultimos[4].Price, 64)
+				ROI := ((currentPrice - valueComprado) / valueComprado) * 100
+
+				if ultimos[4].Price < ultimos[3].Price && ultimos[3].Price < ultimos[2].Price {
+					fmt.Println("Ordem encerrada - desceu 2 consecutivos: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "LONG", fmt.Sprint(valueComprado))
 					if err != nil {
-						fmt.Println(err)
+						return
+					}
+					ordemAtiva = false
+
+				} else if ultimos[4].Price >= fmt.Sprint(margemSuperior) {
+					fmt.Println("Ordem encerrada - Atingiu a Margem Superior: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "LONG", fmt.Sprint(valueComprado))
+					if err != nil {
+						return
+					}
+					ordemAtiva = false
+				} else if ultimos[4].Price <= fmt.Sprint(margemInferior) {
+					fmt.Println("Ordem encerrada - atingiu a margem inferior: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "LONG", fmt.Sprint(valueComprado))
+					if err != nil {
+						return
+					}
+					ordemAtiva = false
+				} else if ROI >= roi {
+					fmt.Println("Ordem encerrada - ROI atingido: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "SELL", "LONG", fmt.Sprint(valueComprado))
+					if err != nil {
 						return
 					}
 					ordemAtiva = false
 				}
 			} else if side == "SELL" {
-				if ultimos[4].Price > ultimos[3].Price && ultimos[3].Price > ultimos[2].Price && ultimos[2].Price > ultimos[1].Price {
-					currentValue = util.ConvertBaseCoin(currentCoin, value)
-					fmt.Println(currentValue)
-					stopPrice, _ := strconv.ParseFloat(ultimos[4].Price, 64)
-					err := criar_ordem.FecharOrdem(currentCoin, side, currentValue, stopPrice, "TAKE_PROFIT_MARKET")
+				currentPrice, _ := strconv.ParseFloat(ultimos[4].Price, 64)
+				ROI := ((valueComprado - currentPrice) / valueComprado) * 100
+
+				if ultimos[4].Price > ultimos[3].Price && ultimos[3].Price > ultimos[2].Price {
+					fmt.Println("Ordem encerrada - subiu 2 consecutivos: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "SHORT", fmt.Sprint(valueComprado))
 					if err != nil {
-						fmt.Println(err)
+						return
+					}
+					ordemAtiva = false
+
+				} else if ultimos[4].Price >= fmt.Sprint(margemSuperior) {
+					fmt.Println("Ordem encerrada - atingiu a margem superior: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "SHORT", fmt.Sprint(valueComprado))
+					if err != nil {
+						return
+					}
+					ordemAtiva = false
+				} else if ultimos[4].Price <= fmt.Sprint(margemInferior) {
+					fmt.Println("Ordem encerrada - atingiu a margem inferior: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "SHORT", fmt.Sprint(valueComprado))
+					if err != nil {
+						return
+					}
+					ordemAtiva = false
+				} else if ROI >= roi {
+					fmt.Println("Ordem encerrada - atingiu roi: " + ultimos[4].Price)
+					_, err := criar_ordem.CriarOrdem(currentCoin, "BUY", "SHORT", fmt.Sprint(valueComprado))
+					if err != nil {
 						return
 					}
 					ordemAtiva = false
 				}
 			}
 		}
-
 		time.Sleep(1 * time.Second)
 	}
 
 }
-
-/*func main() {
-	currentValue := util.ConvertBaseCoin("BTC", 2000)
-	criar_ordem.FecharOrdem("BTC", "BUY", currentValue, 50000, "STOP_MARKET")
-
-	database.DBCon()
-	fmt.Println(listar_ordens.ListarUltimosValores("BTC", 5))
-}*/

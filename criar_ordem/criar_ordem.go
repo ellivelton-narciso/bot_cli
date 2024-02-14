@@ -9,26 +9,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-func CriarOrdem(coin string, side string, quantity string) (string, error) {
-	var side2 string
-
-	if side == "BUY" {
-		side2 = "LONG"
-	} else if side == "SELL" {
-		side2 = "SHORT"
-	}
+func CriarOrdem(coin string, side string, positionSide string, quantity string) (string, error) {
 
 	config.ReadFile()
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&positionSide=" + side2 + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&positionSide=" + positionSide + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
@@ -57,7 +49,6 @@ func CriarOrdem(coin string, side string, quantity string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(string(body))
 
 	allOrders, _ := listar_ordens.ListarOrdens(coin)
 	var entryPrice string
@@ -68,69 +59,6 @@ func CriarOrdem(coin string, side string, quantity string) (string, error) {
 	}
 
 	return entryPrice, nil
-}
-
-func limitarCasasDecimais(numero float64, casasDecimais int) float64 {
-	multiplicador := math.Pow(10, float64(casasDecimais))
-	return math.Round(numero*multiplicador) / multiplicador
-}
-
-func FecharOrdem(coin string, side string, quantity float64, stopPrice float64, orderType string) error {
-
-	now := time.Now()
-	timestamp := now.UnixMilli()
-
-	var side2 string
-	if side == "BUY" {
-		side2 = "LONG"
-	} else if side == "SELL" {
-		side2 = "SHORT"
-	}
-	var sideReverse string
-
-	if side == "BUY" {
-		sideReverse = "SELL"
-	}
-	if side == "SELL" {
-		sideReverse = "BUY"
-	}
-
-	apiParamsProfit := "symbol=" + coin + "" + config.BaseCoin + "&side=" + sideReverse + "&positionSide=" + side2 + "&quantity=" + fmt.Sprint(quantity) + "&type=" + orderType + "&stopPrice=" + fmt.Sprint(limitarCasasDecimais(stopPrice, 2)) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-
-	signatureProfit := config.ComputeHmacSha256(config.SecretKey, apiParamsProfit)
-
-	urlProfit := config.BaseURL + "fapi/v1/order?" + apiParamsProfit + "&signature=" + signatureProfit
-
-	reqProfit, err := http.NewRequest("POST", urlProfit, nil)
-	if err != nil {
-		fmt.Println("Erro ao fechar ordem: ", err)
-		return err
-	}
-
-	reqProfit.Header.Add("Content-Type", "application/json")
-	reqProfit.Header.Add("X-MBX-APIKEY", config.ApiKey)
-
-	resProfit, err := http.DefaultClient.Do(reqProfit)
-	if err != nil {
-		fmt.Println("Erro ao fechar ordem: ", err)
-		return err
-	}
-	defer resProfit.Body.Close()
-
-	body, err := ioutil.ReadAll(resProfit.Body)
-	if err != nil {
-		fmt.Println("Erro ao fechar ordem: ", err)
-		return err
-	}
-	var response models.ResponseOrderStruct
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(body))
-
-	return err
 }
 
 func EnviarCoinDB(coin string) {
@@ -181,4 +109,10 @@ func RemoverCoinDB(coin string) error {
 	}
 	return nil
 
+}
+
+func CalcularROIAlavancado(roi float64, alavancagem float64) float64 {
+	fatorAlavancagem := 1 / alavancagem
+	roiAjustado := roi * fatorAlavancagem
+	return roiAjustado
 }

@@ -51,14 +51,13 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 
 }
 
-func PositionAmt(coin string) (string, error) {
-
+func PositionAmt(coin string, side string) (string, error) {
 	config.ReadFile()
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
 
-	apiParams := "symbol=" + coin + "" + config.BaseCoin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParams := "timestamp=" + strconv.FormatInt(timestamp, 10)
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 
 	url := config.BaseURL + "fapi/v2/positionRisk?" + apiParams + "&signature=" + signature
@@ -85,8 +84,21 @@ func PositionAmt(coin string) (string, error) {
 		return "", err
 	}
 
-	return response[0].PositionAmt, nil
+	if side == "BUY" {
+		side = "LONG"
+	} else if side == "SELL" {
+		side = "SHORT"
+	}
 
+	var positionAmt string
+	for _, pos := range response {
+		if pos.Symbol == coin+config.BaseCoin && pos.PositionSide == side {
+			positionAmt = pos.PositionAmt
+			break
+		}
+	}
+
+	return positionAmt, nil
 }
 
 func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
