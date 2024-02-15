@@ -3,7 +3,6 @@ package criar_ordem
 import (
 	"binance_robot/config"
 	"binance_robot/database"
-	"binance_robot/listar_ordens"
 	"binance_robot/models"
 	"encoding/json"
 	"fmt"
@@ -13,20 +12,20 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin string, side string, quantity string) (string, error) {
+func CriarOrdem(coin string, side string, quantity string, price string) error {
 
 	config.ReadFile()
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=LIMIT&price=" + price + "&side=" + side + "&quantity=" + quantity + "&timeInForce=FOK&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
 
 	req, err := http.NewRequest("POST", urlOrdem, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -34,13 +33,13 @@ func CriarOrdem(coin string, side string, quantity string) (string, error) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	//fmt.Println(string(body))
@@ -48,18 +47,9 @@ func CriarOrdem(coin string, side string, quantity string) (string, error) {
 	var response models.ResponseOrderStruct
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return "", err
+		return err
 	}
-
-	allOrders, _ := listar_ordens.ListarOrdens(coin)
-	var entryPrice string
-	for _, item := range allOrders {
-		if item.PositionSide == side {
-			entryPrice = item.EntryPrice
-		}
-	}
-
-	return entryPrice, err
+	return nil
 }
 
 func EnviarCoinDB(coin string) {

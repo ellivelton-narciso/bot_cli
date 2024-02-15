@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -74,4 +76,20 @@ func removerZeros(number string) string {
 		}
 	}
 	return newValue
+}
+
+func Write(message, coin string) {
+
+	filepath := "logs/log-" + coin + ""
+
+	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer file.Close()
+
+	log.SetOutput(file)
+
+	log.Println(message)
+	fmt.Println(message)
 }
