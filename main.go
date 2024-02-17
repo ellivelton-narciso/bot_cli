@@ -53,6 +53,9 @@ func main() {
 		sairSell          bool
 		slAtingido        bool
 		neutro            bool
+		longsSeguidas     int64
+		shortsSeguidas    int64
+		qtdSeguidas       int64
 	)
 
 	for {
@@ -207,6 +210,20 @@ func main() {
 			continue
 		}
 	} // margens
+	for {
+		fmt.Println("Quantas vezes quer seguir na mesma direção em seguidas. (Digite 0 pra desativar)")
+		_, err = fmt.Scanln(&qtdSeguidas)
+		if err != nil {
+			fmt.Println("Erro, tente digitar somente números: ", err)
+			continue
+		}
+		if qtdSeguidas < 0 {
+			fmt.Println("Quantidade precisa ser maior que 0")
+			continue
+		} else {
+			break
+		}
+	} // Quantidade seguidas na mesma direção
 
 	fmt.Println("Para parar as transações pressione Ctrl + C")
 
@@ -215,6 +232,8 @@ func main() {
 	valueCompradoCoin = 0.0
 	roiAcumulado = 0.0
 	fee := 0.05
+	longsSeguidas = 0
+	shortsSeguidas = 0
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
@@ -278,7 +297,7 @@ func main() {
 				side = "" // Zerar o side para garantir que sempre pegue as duas ordens.
 			}
 			if currentPrice > margemInferior && margemSuperior > currentPrice {
-				if neutro || side == "BUY" {
+				if (neutro || side == "BUY") && (longsSeguidas < qtdSeguidas || qtdSeguidas == 0) {
 					if ultimosEntrada[0].Price > ultimosEntrada[int(segEntrada)-1].Price { // BUY
 						for i := 0; i < int(segEntrada)-1; i++ {
 							entrarBuy = false
@@ -301,6 +320,8 @@ func main() {
 								log.Println("Erro ao criar conta: ", err)
 							}
 							ordemAtiva = true
+							longsSeguidas++
+							shortsSeguidas = 0
 							allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 							if err != nil {
 								log.Println("Erro ao listar ordens: ", err)
@@ -317,7 +338,7 @@ func main() {
 
 					}
 				}
-				if neutro || side == "SELL" {
+				if (neutro || side == "SELL") && (shortsSeguidas < qtdSeguidas || qtdSeguidas == 0) {
 					if ultimosEntrada[0].Price < ultimosEntrada[int(segEntrada)-1].Price { // SELL
 						for i := 0; i < int(segEntrada)-1; i++ {
 							entrarSell = false
@@ -340,6 +361,8 @@ func main() {
 								log.Println("Erro ao criar conta: ", err)
 							}
 							ordemAtiva = true
+							shortsSeguidas++
+							longsSeguidas = 0
 							allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 							if err != nil {
 								log.Println("Erro ao listar ordens: ", err)
