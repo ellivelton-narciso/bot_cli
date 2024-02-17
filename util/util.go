@@ -79,8 +79,7 @@ func removerZeros(number string) string {
 }
 
 func Write(message, coin string) {
-
-	filepath := "logs/log-" + coin + ""
+	filepath := "logs/log-" + coin
 
 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
