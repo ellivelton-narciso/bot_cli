@@ -20,43 +20,48 @@ import (
 	"time"
 )
 
+var (
+	req            *http.Request
+	res            *http.Response
+	body           []byte
+	currentCoin    string
+	side           string
+	value          float64
+	margemInferior float64
+	margemSuperior float64
+	alavancagem    float64
+	currentPrice   float64
+	//roi               float64
+	err               error
+	currentValue      float64
+	currentPriceStr   string
+	ordemAtiva        bool
+	valueCompradoCoin float64
+	primeiraExec      bool
+	roiAcumulado      float64
+	stop              float64
+	allOrders         []models.CryptoPosition
+	ultimosEntrada    []models.PriceResponse
+	ultimosSaida      []models.PriceResponse
+	segEntrada        int64
+	segSaida          int64
+	entrarBuy         bool
+	entrarSell        bool
+	sairBuy           bool
+	sairSell          bool
+	slAtingido        bool
+	neutro            bool
+	longsSeguidas     int64
+	shortsSeguidas    int64
+	qtdSeguidas       int64
+	primeiraOrdem     string
+)
+
 func main() {
 
 	database.DBCon()
 
 	config.ReadFile()
-
-	var (
-		currentCoin    string
-		side           string
-		value          float64
-		margemInferior float64
-		margemSuperior float64
-		alavancagem    float64
-		currentPrice   float64
-		//roi               float64
-		err               error
-		currentValue      float64
-		ordemAtiva        bool
-		valueCompradoCoin float64
-		primeiraExec      bool
-		roiAcumulado      float64
-		stop              float64
-		allOrders         []models.CryptoPosition
-		ultimosEntrada    []models.PriceResponse
-		ultimosSaida      []models.PriceResponse
-		segEntrada        int64
-		segSaida          int64
-		entrarBuy         bool
-		entrarSell        bool
-		sairBuy           bool
-		sairSell          bool
-		slAtingido        bool
-		neutro            bool
-		longsSeguidas     int64
-		shortsSeguidas    int64
-		qtdSeguidas       int64
-	)
 
 	for {
 		fmt.Print("Digite a moeda (ex: BTC): ")
@@ -111,6 +116,21 @@ func main() {
 			continue
 		}
 	} // side
+	if side == "NEUTRO" {
+		for {
+			fmt.Println("Quer definir a primeira ordem em alguma direção? (BUY, SELL, DIGITE 'N' PARA NAO DEFINIR)")
+			_, err = fmt.Scan(&primeiraOrdem)
+			if err != nil {
+				fmt.Println("Erro, tente digitar somente letras: ", err)
+				continue
+			}
+			primeiraOrdem = strings.ToUpper(primeiraOrdem)
+			if primeiraOrdem == "BUY" || primeiraOrdem == "SELL" || primeiraOrdem == "N" {
+				break
+			}
+
+		}
+	} // Definir a primeira entrada
 	for {
 		fmt.Println("Qual sua alavancagem (1 - 20): ")
 		_, err = fmt.Scanln(&alavancagem)
@@ -241,7 +261,7 @@ func main() {
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 	url := config.BaseURL + "fapi/v1/leverage?" + apiParams + "&signature=" + signature
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err = http.NewRequest("POST", url, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -249,7 +269,7 @@ func main() {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
 
-	res, err := http.DefaultClient.Do(req)
+	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
 	}
@@ -259,7 +279,7 @@ func main() {
 			fmt.Println(err)
 		}
 	}(res.Body)
-	body, err := ioutil.ReadAll(res.Body)
+	body, err = ioutil.ReadAll(res.Body)
 	fmt.Println(string(body))
 
 	// Encerrar a aplicação graciosamente
@@ -270,7 +290,7 @@ func main() {
 		sig := <-sigChan
 		fmt.Printf("Sinal capturado: %v\n", sig)
 
-		err := criar_ordem.RemoverCoinDB(currentCoin)
+		err = criar_ordem.RemoverCoinDB(currentCoin)
 		if err != nil {
 			fmt.Println("Erro ao remover a moeda do banco de dados:", err)
 		}
@@ -291,13 +311,13 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
-		currentPriceStr := fmt.Sprint(currentPrice)
+		currentPriceStr = fmt.Sprint(currentPrice)
 		if !ordemAtiva { // Não tem ordem ainda
 			if neutro {
 				side = "" // Zerar o side para garantir que sempre pegue as duas ordens.
 			}
 			if currentPrice > margemInferior && margemSuperior > currentPrice {
-				if (neutro || side == "BUY") && (longsSeguidas < qtdSeguidas || qtdSeguidas == 0) {
+				if (neutro || side == "BUY") && (longsSeguidas < qtdSeguidas || qtdSeguidas == 0) && (primeiraOrdem == "BUY" || primeiraOrdem == "N") {
 					if ultimosEntrada[0].Price > ultimosEntrada[int(segEntrada)-1].Price { // BUY
 						for i := 0; i < int(segEntrada)-1; i++ {
 							entrarBuy = false
@@ -322,6 +342,7 @@ func main() {
 							ordemAtiva = true
 							longsSeguidas++
 							shortsSeguidas = 0
+							primeiraOrdem = "N"
 							allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 							if err != nil {
 								log.Println("Erro ao listar ordens: ", err)
@@ -338,7 +359,7 @@ func main() {
 
 					}
 				}
-				if (neutro || side == "SELL") && (shortsSeguidas < qtdSeguidas || qtdSeguidas == 0) {
+				if (neutro || side == "SELL") && (shortsSeguidas < qtdSeguidas || qtdSeguidas == 0) && (primeiraOrdem == "SELL" || primeiraOrdem == "N") {
 					if ultimosEntrada[0].Price < ultimosEntrada[int(segEntrada)-1].Price { // SELL
 						for i := 0; i < int(segEntrada)-1; i++ {
 							entrarSell = false
@@ -363,6 +384,7 @@ func main() {
 							ordemAtiva = true
 							shortsSeguidas++
 							longsSeguidas = 0
+							primeiraOrdem = "N"
 							allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 							if err != nil {
 								log.Println("Erro ao listar ordens: ", err)
@@ -445,7 +467,7 @@ func main() {
 			if side == "BUY" {
 				ROI := (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				roiTempoReal := roiAcumulado + ROI
-				util.Write("Valor de entrada: "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
+				util.Write("Valor de entrada (LONG): "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 
 				if ROI > (fee * 2) {
 					for i := 0; i < int(segSaida)-1; i++ {
@@ -563,8 +585,7 @@ func main() {
 			} else if side == "SELL" {
 				ROI := (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				roiTempoReal := roiAcumulado + ROI
-				util.Write("Valor de entrada: "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
-
+				util.Write("Valor de entrada (SHORT): "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 				if ROI >= (fee*2)*2 {
 					for i := 0; i < int(segSaida)-1; i++ {
 						sairSell = false
