@@ -413,8 +413,8 @@ func main() {
 			formattedTime := timeValue.Format("2006-01-02 15:04:05")
 			if side == "BUY" {
 				ROI := (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
-				roiAcumulado = roiAcumulado + ROI
-				util.Write("Valor de entrada: "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% - "+formattedTime+" - "+fmt.Sprint(currentPrice)+". Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%", currentCoin+config.BaseCoin)
+				roiTempoReal := roiAcumulado + ROI
+				util.Write("Valor de entrada: "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% - "+formattedTime+" - "+fmt.Sprint(currentPrice)+". Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 
 				if ROI > (fee * 2) {
 					for i := 0; i < int(segSaida)-1; i++ {
@@ -425,6 +425,7 @@ func main() {
 						sairBuy = true
 					}
 					if sairBuy {
+						roiAcumulado = roiAcumulado + ROI
 						util.Write("Ordem encerrada - desceu "+fmt.Sprint(segSaida-1)+" consecutivos após atingir o ROI. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
 						err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), currentPriceStr)
 						if err != nil {
@@ -435,6 +436,7 @@ func main() {
 					}
 
 				} else if currentPrice <= margemInferior {
+					roiAcumulado = roiAcumulado + ROI
 					util.Write("Ordem encerrada - Atingiu margem inferior. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
 					err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), currentPriceStr)
 					if err != nil {
@@ -499,6 +501,7 @@ func main() {
 					} // margens
 					ordemAtiva = false
 				} else if ROI <= 0-(stop) {
+					roiAcumulado = roiAcumulado + ROI
 					util.Write("StopLoss atingido. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
 					err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), currentPriceStr)
 					if err != nil {
@@ -515,6 +518,7 @@ func main() {
 						slAtingido = true
 					}
 					if slAtingido {
+						roiAcumulado = roiAcumulado + ROI
 						util.Write("75% stopLoss atingido e desceu "+fmt.Sprint(segSaida-1)+" vezes consecutivas. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
 						err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), currentPriceStr)
 						if err != nil {
@@ -527,8 +531,8 @@ func main() {
 				}
 			} else if side == "SELL" {
 				ROI := (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
-				roiAcumulado = roiAcumulado + ROI
-				util.Write("Valor de entrada: "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% - "+formattedTime+" - "+currentPriceStr+". Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%", currentCoin+config.BaseCoin)
+				roiTempoReal := roiAcumulado + ROI
+				util.Write("Valor de entrada: "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% - "+formattedTime+" - "+currentPriceStr+". Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 
 				if ROI >= (fee*2)*2 {
 					for i := 0; i < int(segSaida)-1; i++ {
