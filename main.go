@@ -8,10 +8,7 @@ import (
 	"binance_robot/models"
 	"binance_robot/util"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -21,9 +18,6 @@ import (
 )
 
 var (
-	req            *http.Request
-	res            *http.Response
-	body           []byte
 	currentCoin    string
 	side           string
 	value          float64
@@ -55,6 +49,9 @@ var (
 	shortsSeguidas    int64
 	qtdSeguidas       int64
 	primeiraOrdem     string
+	command           string
+	now               time.Time
+	ROI               float64
 )
 
 func main() {
@@ -255,32 +252,9 @@ func main() {
 	longsSeguidas = 0
 	shortsSeguidas = 0
 
-	now := time.Now()
-	timestamp := now.UnixMilli()
-	apiParams := "symbol=" + currentCoin + config.BaseCoin + "&leverage=" + fmt.Sprint(alavancagem) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
-	url := config.BaseURL + "fapi/v1/leverage?" + apiParams + "&signature=" + signature
+	util.DefinirAlavancagem(currentCoin, alavancagem)
 
-	req, err = http.NewRequest("POST", url, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
-
-	res, err = http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer func(Body io.ReadCloser) {
-		err = Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(res.Body)
-	body, err = ioutil.ReadAll(res.Body)
-	fmt.Println(string(body))
+	go handleCommands()
 
 	// Encerrar a aplicação graciosamente
 	sigChan := make(chan os.Signal, 1)
@@ -302,8 +276,10 @@ func main() {
 		criar_ordem.EnviarCoinDB(currentCoin)
 
 		if primeiraExec {
-			time.Sleep(time.Duration(segEntrada+2) * time.Second)
+			fmt.Println("Primeira execução. Estou lendo os primeiros valores.")
+			time.Sleep(time.Duration(segEntrada+segSaida) * time.Second)
 			primeiraExec = false
+			fmt.Println("Iniciado!! Aguarde a primeira ordem.")
 		}
 		ultimosEntrada = listar_ordens.ListarUltimosValores(currentCoin, segEntrada)
 		ultimosSaida = listar_ordens.ListarUltimosValores(currentCoin, segSaida)
@@ -327,34 +303,7 @@ func main() {
 							entrarBuy = true
 						}
 						if entrarBuy {
-							currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
-							ultimosValores := "| "
-							for i := 0; i < int(segEntrada)-1; i++ {
-								ultimosValores += ultimosEntrada[i].Price + " | "
-							}
-							valueCompradoCoin = currentPrice
-							util.Write("Entrada em LONG: "+currentPriceStr+". Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
-							side = "BUY"
-							err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue), currentPriceStr)
-							if err != nil {
-								log.Println("Erro ao criar conta: ", err)
-							}
-							ordemAtiva = true
-							longsSeguidas++
-							shortsSeguidas = 0
-							primeiraOrdem = "N"
-							allOrders, err = listar_ordens.ListarOrdens(currentCoin)
-							if err != nil {
-								log.Println("Erro ao listar ordens: ", err)
-							}
-							for _, item := range allOrders {
-								if item.PositionSide == side {
-									valueCompradoCoin, err = strconv.ParseFloat(item.EntryPrice, 64)
-									if err != nil {
-										log.Println("Erro ao buscar valor de entrada: ", err)
-									}
-								}
-							}
+							comprarBuy()
 						}
 
 					}
@@ -369,34 +318,7 @@ func main() {
 							entrarSell = true
 						}
 						if entrarSell {
-							currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
-							ultimosValores := "| "
-							for i := 0; i < int(segEntrada)-1; i++ {
-								ultimosValores += ultimosEntrada[i].Price + " | "
-							}
-							valueCompradoCoin = currentPrice
-							util.Write("Entrada em SHORT: "+currentPriceStr+". Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
-							side = "SELL"
-							err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue), currentPriceStr)
-							if err != nil {
-								log.Println("Erro ao criar conta: ", err)
-							}
-							ordemAtiva = true
-							shortsSeguidas++
-							longsSeguidas = 0
-							primeiraOrdem = "N"
-							allOrders, err = listar_ordens.ListarOrdens(currentCoin)
-							if err != nil {
-								log.Println("Erro ao listar ordens: ", err)
-							}
-							for _, item := range allOrders {
-								if item.PositionSide == side {
-									valueCompradoCoin, err = strconv.ParseFloat(item.EntryPrice, 64)
-									if err != nil {
-										log.Println("Erro ao buscar valor de entrada: ", err)
-									}
-								}
-							}
+							comprarSell()
 						}
 					}
 				}
@@ -465,7 +387,7 @@ func main() {
 			timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
 			formattedTime := timeValue.Format("2006-01-02 15:04:05")
 			if side == "BUY" {
-				ROI := (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
+				ROI = (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				roiTempoReal := roiAcumulado + ROI
 				util.Write("Valor de entrada (LONG): "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 
@@ -583,7 +505,7 @@ func main() {
 
 				}
 			} else if side == "SELL" {
-				ROI := (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
+				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				roiTempoReal := roiAcumulado + ROI
 				util.Write("Valor de entrada (SHORT): "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 				if ROI >= (fee*2)*2 {
@@ -704,5 +626,168 @@ func main() {
 		}
 		time.Sleep(900 * time.Millisecond)
 	}
+}
 
+func comprarBuy() {
+	currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+	ultimosValores := "| "
+	for i := 0; i < int(segEntrada)-1; i++ {
+		ultimosValores += ultimosEntrada[i].Price + " | "
+	}
+	valueCompradoCoin = currentPrice
+	util.Write("Entrada em LONG: "+currentPriceStr+". Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
+	side = "BUY"
+	err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue), currentPriceStr)
+	if err != nil {
+		log.Println("Erro ao criar conta: ", err)
+	}
+	ordemAtiva = true
+	longsSeguidas++
+	shortsSeguidas = 0
+	primeiraOrdem = "N"
+	allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+	if err != nil {
+		log.Println("Erro ao listar ordens: ", err)
+	}
+	for _, item := range allOrders {
+		if item.PositionSide == side {
+			valueCompradoCoin, err = strconv.ParseFloat(item.EntryPrice, 64)
+			if err != nil {
+				log.Println("Erro ao buscar valor de entrada: ", err)
+			}
+		}
+	}
+	return
+}
+
+func comprarSell() {
+	currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+	ultimosValores := "| "
+	for i := 0; i < int(segEntrada)-1; i++ {
+		ultimosValores += ultimosEntrada[i].Price + " | "
+	}
+	valueCompradoCoin = currentPrice
+	util.Write("Entrada em SHORT: "+currentPriceStr+". Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
+	side = "SELL"
+	err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue), currentPriceStr)
+	if err != nil {
+		log.Println("Erro ao criar conta: ", err)
+	}
+	ordemAtiva = true
+	shortsSeguidas++
+	longsSeguidas = 0
+	primeiraOrdem = "N"
+	allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+	if err != nil {
+		log.Println("Erro ao listar ordens: ", err)
+	}
+	for _, item := range allOrders {
+		if item.PositionSide == side {
+			valueCompradoCoin, err = strconv.ParseFloat(item.EntryPrice, 64)
+			if err != nil {
+				log.Println("Erro ao buscar valor de entrada: ", err)
+			}
+		}
+	}
+	return
+}
+
+func handleCommands() {
+	for {
+		_, err = fmt.Scanln(&command)
+		if err != nil {
+			fmt.Println("Erro ao ler o comando:", err)
+			continue
+		}
+
+		switch strings.ToUpper(command) {
+		case "BUY":
+			if !ordemAtiva {
+				comprarBuy()
+				side = "BUY"
+				break
+			} else {
+				fmt.Println("\nJá tem uma ordem ativa.")
+				break
+			}
+
+		case "SELL":
+			if !ordemAtiva {
+				comprarSell()
+				side = "SELL"
+				break
+			} else {
+				fmt.Println("\nJá tem uma ordem ativa.")
+				break
+			}
+
+		case "NEUTRO":
+			neutro = !neutro
+			fmt.Println("Neutro ativado/desativado.")
+			break
+		case "STOP":
+			if ordemAtiva {
+				if side == "BUY" {
+					roiAcumulado = roiAcumulado + ROI
+					util.Write("Ordem encerrada manualmente. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
+					err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), ultimosSaida[0].Price)
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					ordemAtiva = false
+					break
+				} else if side == "SELL" {
+					roiAcumulado = roiAcumulado + ROI
+					util.Write("Ordem encerrada manualmente. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
+					err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue), ultimosSaida[0].Price)
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					ordemAtiva = false
+					break
+				}
+
+			} else {
+				fmt.Println("Não tens ordens ativas.")
+				break
+			}
+
+		case "REVERSE":
+			if ordemAtiva {
+				if side == "BUY" {
+					roiAcumulado = roiAcumulado + ROI
+					util.Write("Ordem encerrada manualmente. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
+					err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), ultimosSaida[0].Price)
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					ordemAtiva = false
+					comprarSell()
+					side = "SELL"
+				} else if side == "SELL" {
+					roiAcumulado = roiAcumulado + ROI
+					util.Write("Ordem encerrada manualmente. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
+					err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue), ultimosSaida[0].Price)
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					ordemAtiva = false
+					comprarBuy()
+					side = "BUY"
+				}
+				break
+			} else {
+				fmt.Println("Não tens ordens ativas.")
+				break
+			}
+
+		default:
+			fmt.Println("Comando inválido.")
+			break
+		}
+	}
 }

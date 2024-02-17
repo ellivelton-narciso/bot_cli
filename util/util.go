@@ -5,6 +5,7 @@ import (
 	"binance_robot/models"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func ConvertBaseCoin(coin string, value float64) float64 {
@@ -91,4 +93,33 @@ func Write(message, coin string) {
 
 	log.Println(message)
 	fmt.Println(message)
+}
+
+func DefinirAlavancagem(currentCoin string, alavancagem float64) {
+	now := time.Now()
+	timestamp := now.UnixMilli()
+	apiParams := "symbol=" + currentCoin + config.BaseCoin + "&leverage=" + fmt.Sprint(alavancagem) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
+	url := config.BaseURL + "fapi/v1/leverage?" + apiParams + "&signature=" + signature
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
+	fmt.Println(string(body))
 }
