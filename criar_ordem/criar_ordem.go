@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin string, side string, quantity string, price string) error {
+func CriarOrdem(coin string, side string, quantity string, price string) (int, error) {
 
 	config.ReadFile()
 
@@ -25,7 +25,7 @@ func CriarOrdem(coin string, side string, quantity string, price string) error {
 
 	req, err := http.NewRequest("POST", urlOrdem, nil)
 	if err != nil {
-		return err
+		return 500, err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -33,23 +33,21 @@ func CriarOrdem(coin string, side string, quantity string, price string) error {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return 500, err
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return err
+		return 500, err
 	}
-
-	//fmt.Println(string(body))
 
 	var response models.ResponseOrderStruct
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return err
+		return 500, err
 	}
-	return nil
+	return res.StatusCode, err
 }
 
 func EnviarCoinDB(coin string) {
