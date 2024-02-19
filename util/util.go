@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -91,8 +92,13 @@ func Write(message, coin string) {
 
 	log.SetOutput(file)
 
-	log.Println(message)
+	log.Println(stripColor(message))
 	fmt.Println(message)
+}
+
+func stripColor(message string) string {
+	regex := regexp.MustCompile("\x1b\\[[0-9;]*m")
+	return regex.ReplaceAllString(message, "")
 }
 
 func DefinirAlavancagem(currentCoin string, alavancagem float64) {
