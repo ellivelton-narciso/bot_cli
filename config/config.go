@@ -9,17 +9,19 @@ import (
 	"io/ioutil"
 )
 
-type ConfigStruct struct {
+type UserStruct struct {
 	ApiKey      string `json:"apiKey"`
 	SecretKey   string `json:"secretKey"`
 	BaseURL     string `json:"baseURL"`
 	BaseCoin    string `json:"baseCoin"`
-	Host        string `json:"host"`
-	User        string `json:"user"`
-	Pass        string `json:"pass"`
-	Port        string `json:"port"`
-	Dbname      string `json:"dbname"`
 	Development bool   `json:"development"`
+}
+type ConfigStruct struct {
+	Host   string `json:"host"`
+	User   string `json:"user"`
+	Pass   string `json:"pass"`
+	Port   string `json:"port"`
+	Dbname string `json:"dbname"`
 }
 
 var (
@@ -34,28 +36,34 @@ var (
 	DBname      string
 	Development bool
 	Config      ConfigStruct
+	UserConfig  UserStruct
 )
 
 func ReadFile() {
 	file, err := ioutil.ReadFile("config.json")
-
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-
 	err = json.Unmarshal(file, &Config)
+	user, err := ioutil.ReadFile("user.json")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	err = json.Unmarshal(user, &UserConfig)
 
-	ApiKey = Config.ApiKey
-	SecretKey = Config.SecretKey
-	BaseURL = Config.BaseURL
-	BaseCoin = Config.BaseCoin
+	ApiKey = UserConfig.ApiKey
+	SecretKey = UserConfig.SecretKey
+	BaseURL = UserConfig.BaseURL
+	BaseCoin = UserConfig.BaseCoin
+	Development = UserConfig.Development
 	Host = Config.Host
 	User = Config.User
 	Pass = Config.Pass
 	Port = Config.Port
 	DBname = Config.Dbname
-	Development = Config.Development
+
 }
 
 func ComputeHmacSha256(secret string, message string) string {

@@ -19,14 +19,14 @@ import (
 )
 
 var (
-	currentCoin    string
-	side           string
-	value          float64
-	margemInferior float64
-	margemSuperior float64
-	alavancagem    float64
-	currentPrice   float64
-	//roi               float64
+	currentCoin       string
+	side              string
+	value             float64
+	margemInferior    float64
+	margemSuperior    float64
+	alavancagem       float64
+	currentPrice      float64
+	roi               float64
 	err               error
 	currentValue      float64
 	currentPriceStr   string
@@ -316,6 +316,19 @@ func main() {
 			break
 		}
 	} // Quantidade seguidas na mesma direção
+	for {
+		fmt.Println("Qual será seu TAKE PROFIT em % total? (Ao atingir o valor a aplicação será encerrada totalmente).")
+		_, err = fmt.Scanln(&roi)
+		if err != nil {
+			fmt.Println("Erro, tente digitar somente números: ", err)
+			continue
+		}
+		if roi <= 0 {
+			fmt.Println("TAKEPROFIT precisa ser maior que 0")
+		} else {
+			break
+		}
+	} // TAKEPROFIT Total
 
 	fmt.Println("Para parar as transações pressione Ctrl + C")
 
@@ -553,6 +566,21 @@ func main() {
 				roiTempoReal := roiAcumulado + ROI
 				util.Write("Valor de entrada (LONG): "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
 
+				if roiTempoReal >= roi {
+					util.Write("Ordem encerrada - TAKE PROFIT atingido :). Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
+					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), currentPriceStr)
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					if config.Development || order == 200 {
+						ordemAtiva = false
+						os.Exit(0)
+					} else {
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
+						ordemAtiva = true
+					}
+				}
 				if ROI > (fee * 2) {
 					for i := 0; i < int(segSaida)-1; i++ {
 						sairBuy = false
@@ -690,6 +718,22 @@ func main() {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				roiTempoReal := roiAcumulado + ROI
 				util.Write("Valor de entrada (SHORT): "+fmt.Sprint(valueCompradoCoin)+" | "+fmt.Sprintf("%.4f", ROI)+"% | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+fmt.Sprintf("%.4f", roiTempoReal)+"%", currentCoin+config.BaseCoin)
+
+				if roiTempoReal >= roi {
+					util.Write("Ordem encerrada - TAKE PROFIT atingido :). Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado)+"%\n\n", currentCoin+config.BaseCoin)
+					order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue), currentPriceStr)
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					if config.Development || order == 200 {
+						ordemAtiva = false
+						os.Exit(0)
+					} else {
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
+						ordemAtiva = true
+					}
+				}
 				if ROI >= (fee*2)*2 {
 					for i := 0; i < int(segSaida)-1; i++ {
 						sairSell = false
