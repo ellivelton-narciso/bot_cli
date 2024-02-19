@@ -10,28 +10,30 @@ import (
 )
 
 type ConfigStruct struct {
-	ApiKey    string `json:"apiKey"`
-	SecretKey string `json:"secretKey"`
-	BaseURL   string `json:"baseURL"`
-	BaseCoin  string `json:"baseCoin"`
-	Host      string `json:"host"`
-	User      string `json:"user"`
-	Pass      string `json:"pass"`
-	Port      string `json:"port"`
-	Dbname    string `json:"dbname"`
+	ApiKey      string `json:"apiKey"`
+	SecretKey   string `json:"secretKey"`
+	BaseURL     string `json:"baseURL"`
+	BaseCoin    string `json:"baseCoin"`
+	Host        string `json:"host"`
+	User        string `json:"user"`
+	Pass        string `json:"pass"`
+	Port        string `json:"port"`
+	Dbname      string `json:"dbname"`
+	Development bool   `json:"development"`
 }
 
 var (
-	ApiKey    string
-	SecretKey string
-	BaseURL   string
-	BaseCoin  string
-	Host      string
-	User      string
-	Pass      string
-	Port      string
-	DBname    string
-	Config    ConfigStruct
+	ApiKey      string
+	SecretKey   string
+	BaseURL     string
+	BaseCoin    string
+	Host        string
+	User        string
+	Pass        string
+	Port        string
+	DBname      string
+	Development bool
+	Config      ConfigStruct
 )
 
 func ReadFile() {
@@ -53,6 +55,7 @@ func ReadFile() {
 	Pass = Config.Pass
 	Port = Config.Port
 	DBname = Config.Dbname
+	Development = Config.Development
 }
 
 func ComputeHmacSha256(secret string, message string) string {
