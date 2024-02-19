@@ -68,7 +68,6 @@ var (
 )
 
 func main() {
-
 	database.DBCon()
 
 	config.ReadFile()
@@ -775,7 +774,7 @@ func main() {
 				} else {
 					roiTempoRealStr = red(fmt.Sprintf("%.4f", roiTempoReal) + "%")
 				}
-				util.Write("Valor de entrada (SHORT): "+fmt.Sprint(valueCompradoCoin)+" | "+ROIStr+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin+config.BaseCoin)
+				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+ROIStr+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin+config.BaseCoin)
 
 				if roiTempoReal >= roi {
 					roiAcumulado = roiAcumulado + ROI
@@ -1005,7 +1004,7 @@ func comprarSell() int {
 		ultimosValores += ultimosEntrada[i].Price + " | "
 	}
 	valueCompradoCoin = currentPrice
-	util.Write("Entrada em "+red("SHORT")+": "+currentPriceStr+". Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
+	util.Write("Entrada em SHORT: "+currentPriceStr+". Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
 
 	order, err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue), currentPriceStr)
 	if err != nil {
@@ -1048,7 +1047,6 @@ func handleCommands() {
 
 		switch strings.ToUpper(command) {
 		case "BUY":
-		case "LONG":
 			if !ordemAtiva {
 				o := comprarBuy()
 				if config.Development || o == 200 {
@@ -1063,7 +1061,6 @@ func handleCommands() {
 				break
 			}
 		case "SELL":
-		case "SHORT":
 			if !ordemAtiva {
 				o := comprarSell()
 				if config.Development || o == 200 {
@@ -1131,7 +1128,6 @@ func handleCommands() {
 				break
 			}
 		case "REVERSE":
-		case "SWITCH":
 			if ordemAtiva {
 				if side == "BUY" {
 					roiAcumulado = roiAcumulado + ROI
@@ -1145,11 +1141,7 @@ func handleCommands() {
 						log.Println("Erro ao fechar a ordem: ", err)
 						return
 					}
-					if order != 200 {
-						fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
-						ordemAtiva = true
-						break
-					} else {
+					if config.Development || order == 200 {
 						util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
 						ordemAtiva = false
 						o := comprarSell()
@@ -1160,7 +1152,10 @@ func handleCommands() {
 						} else {
 							break
 						}
-
+					} else {
+						fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
+						ordemAtiva = true
+						break
 					}
 
 				} else if side == "SELL" {
@@ -1200,7 +1195,7 @@ func handleCommands() {
 			}
 
 		default:
-			fmt.Println("Comando inválido. Tente: BUY/LONG(Entrar em LONG imediatamente), SELL/SHORT(Entrar em SHORT imediatamente), NEUTRO(Ativar/Desativar Neutro), REVERSE/SWITCH(Trocar de lado imediatamente), STOP(Parar a ordem imeditamente).")
+			fmt.Println("Comando inválido. Tente: BUY(Entrar em LONG imediatamente), SELL(Entrar em SHORT imediatamente), NEUTRO(Ativar/Desativar Neutro), REVERSE(Trocar de lado imediatamente), STOP(Parar a ordem imeditamente).")
 			break
 		}
 	}
