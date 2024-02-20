@@ -66,6 +66,7 @@ var (
 	red               func(a ...interface{}) string
 	green             func(a ...interface{}) string
 	cmdRun            bool
+	printUltimos      bool
 )
 
 func main() {
@@ -123,6 +124,7 @@ func main() {
 				break
 			}
 			neutro = false
+			primeiraOrdem = side
 			break
 		} else {
 			fmt.Println("Deve entrar somente em LONG, SHORT ou NEUTRO")
@@ -142,8 +144,22 @@ func main() {
 				break
 			}
 
-		}
-	} // Definir a primeira entrada
+		} // Definir a primeira entrada
+		for {
+			fmt.Println("Quantas vezes quer seguir na mesma direção em seguidas. (Digite 0 pra desativar)")
+			_, err = fmt.Scanln(&qtdSeguidas)
+			if err != nil {
+				fmt.Println("Erro, tente digitar somente números: ", err)
+				continue
+			}
+			if qtdSeguidas < 0 {
+				fmt.Println("Quantidade precisa ser maior que 0")
+				continue
+			} else {
+				break
+			}
+		} // Quantidade seguidas na mesma direção
+	}
 	for {
 		fmt.Println("Qual sua alavancagem (1 - 20): ")
 		_, err = fmt.Scanln(&alavancagem)
@@ -311,20 +327,7 @@ func main() {
 			continue
 		}
 	} // margens
-	for {
-		fmt.Println("Quantas vezes quer seguir na mesma direção em seguidas. (Digite 0 pra desativar)")
-		_, err = fmt.Scanln(&qtdSeguidas)
-		if err != nil {
-			fmt.Println("Erro, tente digitar somente números: ", err)
-			continue
-		}
-		if qtdSeguidas < 0 {
-			fmt.Println("Quantidade precisa ser maior que 0")
-			continue
-		} else {
-			break
-		}
-	} // Quantidade seguidas na mesma direção
+
 	for {
 		fmt.Println("Qual será seu TAKE PROFIT em % total? (Ao atingir o valor a aplicação será encerrada totalmente).")
 		_, err = fmt.Scanln(&roi)
@@ -427,9 +430,18 @@ func main() {
 			if neutro {
 				side = "" // Zerar o side para garantir que sempre pegue as duas ordens.
 			}
+			printUltimos = false
 			if currentPrice > margemInferior && margemSuperior > currentPrice {
 				if (neutro || side == "BUY") && (longsSeguidas < qtdSeguidas || qtdSeguidas == 0) && (primeiraOrdem == "BUY" || primeiraOrdem == "N") {
 					if entrada == "SEGUNDOS" {
+						ultimosValores := "| "
+						for i := 0; i < int(segEntrada)-1; i++ {
+							ultimosValores += ultimosEntrada[i].Price + " | "
+						}
+						if printUltimos == false {
+							fmt.Println("Preço atual: "+currentPriceStr+" | Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
+						}
+
 						if ultimosEntrada[0].Price > ultimosEntrada[int(segEntrada)-1].Price { // BUY
 							for i := 0; i < int(segEntrada)-1; i++ {
 								entrarBuy = false
@@ -439,6 +451,7 @@ func main() {
 								entrarBuy = true
 							}
 							if entrarBuy {
+								printUltimos = true
 								o := comprarBuy()
 								if config.Development {
 									ordemAtiva = true
@@ -446,19 +459,31 @@ func main() {
 									ordemAtiva = o == 200
 								}
 							}
-
 						}
 					} else if entrada == "VELAS" {
 						num = 0
 						for i := 1; i <= int(velasqtd); i++ {
 							entrarBuy = false
-							if ultimosVelas[num].Price < ultimosVelas[(int(velasperiodo)*i)-1].Price {
+							num2 := (int(velasperiodo) * i) - 1
+							if (int(velasperiodo)*i)-1 >= len(ultimosVelas) {
 								break
+							}
+							ultimosValores := "| "
+							ultimosValores += ultimosVelas[num2].Price + " - " + ultimosVelas[num].Price + " | "
+							if ultimosVelas[num].Price < ultimosVelas[num2].Price {
+								if printUltimos == false {
+									fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + red(ultimosValores))
+								}
+								break
+							}
+							if printUltimos == false {
+								fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + green(ultimosValores))
 							}
 							num = num + int(velasperiodo)
 							entrarBuy = true
 						}
 						if entrarBuy {
+							printUltimos = true
 							o := comprarBuy()
 							if config.Development {
 								ordemAtiva = true
@@ -470,6 +495,13 @@ func main() {
 				}
 				if (neutro || side == "SELL") && (shortsSeguidas < qtdSeguidas || qtdSeguidas == 0) && (primeiraOrdem == "SELL" || primeiraOrdem == "N") {
 					if entrada == "SEGUNDOS" {
+						ultimosValores := "| "
+						for i := 0; i < int(segEntrada)-1; i++ {
+							ultimosValores += ultimosEntrada[i].Price + " | "
+						}
+						if printUltimos == false {
+							fmt.Println("Preço atual: "+currentPriceStr+" | Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
+						}
 						if ultimosEntrada[0].Price < ultimosEntrada[int(segEntrada)-1].Price { // SELL
 							for i := 0; i < int(segEntrada)-1; i++ {
 								entrarSell = false
@@ -479,6 +511,7 @@ func main() {
 								entrarSell = true
 							}
 							if entrarSell {
+								printUltimos = true
 								o := comprarSell()
 								if config.Development {
 									ordemAtiva = true
@@ -489,15 +522,28 @@ func main() {
 						}
 					} else if entrada == "VELAS" {
 						num = 0
-						for i := 1; i >= int(velasqtd); i++ {
+						for i := 1; i <= int(velasqtd); i++ {
 							entrarSell = false
-							if ultimosVelas[num].Price > ultimosVelas[(int(velasperiodo)*i)-1].Price {
+							num2 := (int(velasperiodo) * i) - 1
+							if num2 >= len(ultimosVelas) {
 								break
+							}
+							ultimosValores := "| "
+							ultimosValores += ultimosVelas[num2].Price + " - " + ultimosVelas[num].Price + " | "
+							if ultimosVelas[num].Price > ultimosVelas[num2].Price {
+								if printUltimos == false {
+									fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + green(ultimosValores))
+								}
+								break
+							}
+							if printUltimos == false {
+								fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + red(ultimosValores))
 							}
 							num = num + int(velasperiodo)
 							entrarSell = true
 						}
 						if entrarSell {
+							printUltimos = true
 							o := comprarSell()
 							if config.Development {
 								ordemAtiva = true
@@ -1082,6 +1128,7 @@ func handleCommands() {
 			}
 		case "NEUTRO":
 			neutro = !neutro
+			primeiraOrdem = "N"
 			fmt.Println("Neutro ativado/desativado.")
 			break
 		case "STOP":
