@@ -36,6 +36,7 @@ var (
 	primeiraExec      bool
 	roiAcumulado      float64
 	stop              float64
+	stopLossAll       float64
 	allOrders         []models.CryptoPosition
 	ultimosEntrada    []models.PriceResponse
 	ultimosSaida      []models.PriceResponse
@@ -285,7 +286,7 @@ func main() {
 		} // Quantidade de segundos para saída
 	}
 	for {
-		fmt.Println("Qual o Stop Loss que deseja trabalhar em porcentagem (ex: 0.5): ")
+		fmt.Println("Qual o Stop Loss por ORDEM que deseja trabalhar em porcentagem (ex: 0.5): ")
 		_, err = fmt.Scanln(&stop)
 		if err != nil {
 			fmt.Println("Erro, tente digitar somente números: ", err)
@@ -294,10 +295,24 @@ func main() {
 		if stop > 0 {
 			break
 		} else {
-			fmt.Println("Stop Loss precisa ser maior que 0")
+			fmt.Println("Stop Loss por ORDEM precisa ser maior que 0")
 			continue
 		}
 	} // stopLoss
+	for {
+		fmt.Println("Qual o Stop Loss TOTAL que deseja trabalhar em porcentagem (ex: 0.5): ")
+		_, err = fmt.Scanln(&stopLossAll)
+		if err != nil {
+			fmt.Println("Erro, tente digitar somente números: ", err)
+			continue
+		}
+		if stopLossAll > stop {
+			break
+		} else {
+			fmt.Println("Stop Loss TOTAL precisa ser maior que o Stop Loss por Ordem")
+			continue
+		}
+	} // stopLoss Total
 	for {
 		fmt.Println("Qual sua margem inferior: ")
 		_, err = fmt.Scanln(&margemInferior)
@@ -327,7 +342,6 @@ func main() {
 			continue
 		}
 	} // margens
-
 	for {
 		fmt.Println("Qual será seu TAKE PROFIT em % total? (Ao atingir o valor a aplicação será encerrada totalmente).")
 		_, err = fmt.Scanln(&roi)
@@ -438,8 +452,8 @@ func main() {
 						for i := 0; i < int(segEntrada)-1; i++ {
 							ultimosValores += ultimosEntrada[i].Price + " | "
 						}
-						if printUltimos == false {
-							fmt.Println("Preço atual: "+currentPriceStr+" | Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
+						if !printUltimos && !cmdRun {
+							fmt.Println("Preço atual: "+currentPriceStr+" | Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
 						}
 
 						if ultimosEntrada[0].Price > ultimosEntrada[int(segEntrada)-1].Price { // BUY
@@ -471,12 +485,12 @@ func main() {
 							ultimosValores := "| "
 							ultimosValores += ultimosVelas[num2].Price + " - " + ultimosVelas[num].Price + " | "
 							if ultimosVelas[num].Price < ultimosVelas[num2].Price {
-								if printUltimos == false {
+								if !printUltimos && !cmdRun {
 									fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + red(ultimosValores))
 								}
 								break
 							}
-							if printUltimos == false {
+							if !printUltimos && !cmdRun {
 								fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + green(ultimosValores))
 							}
 							num = num + int(velasperiodo)
@@ -499,8 +513,8 @@ func main() {
 						for i := 0; i < int(segEntrada)-1; i++ {
 							ultimosValores += ultimosEntrada[i].Price + " | "
 						}
-						if printUltimos == false {
-							fmt.Println("Preço atual: "+currentPriceStr+" | Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
+						if !printUltimos && !cmdRun {
+							fmt.Println("Preço atual: "+currentPriceStr+" | Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
 						}
 						if ultimosEntrada[0].Price < ultimosEntrada[int(segEntrada)-1].Price { // SELL
 							for i := 0; i < int(segEntrada)-1; i++ {
@@ -531,12 +545,12 @@ func main() {
 							ultimosValores := "| "
 							ultimosValores += ultimosVelas[num2].Price + " - " + ultimosVelas[num].Price + " | "
 							if ultimosVelas[num].Price > ultimosVelas[num2].Price {
-								if printUltimos == false {
+								if !printUltimos && !cmdRun {
 									fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + green(ultimosValores))
 								}
 								break
 							}
-							if printUltimos == false {
+							if !printUltimos && !cmdRun {
 								fmt.Println("Ultima vela de " + fmt.Sprint(velasperiodo) + " segundos: " + red(ultimosValores))
 							}
 							num = num + int(velasperiodo)
@@ -655,8 +669,7 @@ func main() {
 						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
 						ordemAtiva = true
 					}
-				}
-				if ROI > (fee * 2) {
+				} else if ROI > (fee * 2) {
 					for i := 0; i < int(segSaida)-1; i++ {
 						sairBuy = false
 						if ultimosSaida[i].Price >= ultimosSaida[i+1].Price {
@@ -808,6 +821,25 @@ func main() {
 							ordemAtiva = true
 						}
 					}
+				} else if roiAcumulado <= 0-(stopLossAll) {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					util.Write("Stop Loss TOTAL atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					if config.Development || order == 200 {
+						os.Exit(1)
+					} else {
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
+						ordemAtiva = true
+					}
 				}
 			} else if side == "SELL" {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
@@ -847,8 +879,7 @@ func main() {
 						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
 						ordemAtiva = true
 					}
-				}
-				if ROI >= (fee*2)*2 {
+				} else if ROI >= (fee*2)*2 {
 					for i := 0; i < int(segSaida)-1; i++ {
 						sairSell = false
 						if ultimosSaida[i].Price <= ultimosSaida[i+1].Price {
@@ -1002,6 +1033,25 @@ func main() {
 						}
 					}
 
+				} else if roiAcumulado <= 0-(stopLossAll) {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					util.Write("Stop Loss TOTAL atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
+					if err != nil {
+						log.Println("Erro ao fechar a ordem: ", err)
+						return
+					}
+					if config.Development || order == 200 {
+						os.Exit(1)
+					} else {
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
+						ordemAtiva = true
+					}
 				}
 			}
 		}
@@ -1017,7 +1067,7 @@ func comprarBuy() int {
 	}
 	valueCompradoCoin = currentPrice
 	side = "BUY"
-	util.Write("Entrada em LONG: "+currentPriceStr+". Ultimo valores: "+ultimosValores, currentCoin+config.BaseCoin)
+	util.Write("Entrada em LONG: "+currentPriceStr+". Ultimos valores: "+ultimosValores, currentCoin+config.BaseCoin)
 	order, err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue))
 	if err != nil {
 		log.Println("Erro ao criar conta: ", err)
@@ -1090,199 +1140,342 @@ func comprarSell() int {
 }
 
 func handleCommands() {
-	for {
-		_, err = fmt.Scanln(&command)
-		if err != nil {
-			fmt.Println("Erro ao ler o comando:", err)
-			continue
-		}
-		command = strings.ToUpper(command)
-
-		switch strings.ToUpper(command) {
-		case "BUY":
-			if !ordemAtiva {
-				o := comprarBuy()
-				if config.Development || o == 200 {
-					side = "BUY"
-					break
-				} else {
-					break
-				}
-
-			} else {
-				fmt.Println("\nJá tem uma ordem ativa.")
-				break
+	if !primeiraExec && !cmdRun {
+		for {
+			_, err = fmt.Scanln(&command)
+			if err != nil {
+				fmt.Println("Erro ao ler o comando:", err)
+				continue
 			}
-		case "SELL":
-			if !ordemAtiva {
-				o := comprarSell()
-				if config.Development || o == 200 {
-					side = "SELL"
-					break
-				} else {
-					break
-				}
-			} else {
-				fmt.Println("\nJá tem uma ordem ativa.")
-				break
-			}
-		case "NEUTRO":
-			neutro = !neutro
-			primeiraOrdem = "N"
-			fmt.Println("Neutro ativado/desativado.")
-			break
-		case "STOP":
-			if ordemAtiva {
-				if side == "BUY" {
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					}
-					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
-					if err != nil {
-						log.Println("Erro ao fechar a ordem: ", err)
-						return
-					}
-					if config.Development || order == 200 {
-						util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
-						ordemAtiva = false
-						break
-					} else {
-						fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
-						ordemAtiva = true
-						break
-					}
-				} else if side == "SELL" {
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					}
-					order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
-					if err != nil {
-						log.Println("Erro ao fechar a ordem: ", err)
-						return
-					}
-					if config.Development || order == 200 {
-						util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
-						ordemAtiva = false
-						break
-					} else {
-						util.Write("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.", currentCoin+config.BaseCoin)
-						ordemAtiva = true
-						break
-					}
-				}
-
-			} else {
-				fmt.Println("Não tens ordens ativas.")
-				break
-			}
-		case "REVERSE":
-			if ordemAtiva {
-				if side == "BUY" {
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					}
-					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
-					if err != nil {
-						log.Println("Erro ao fechar a ordem: ", err)
-						return
-					}
-					if config.Development || order == 200 {
-						util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
-						ordemAtiva = false
-						o := comprarSell()
-						if config.Development || o == 200 {
-							side = "SELL"
-							ordemAtiva = true
-							break
-						} else {
-							break
-						}
-					} else {
-						fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
-						ordemAtiva = true
-						break
-					}
-
-				} else if side == "SELL" {
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					}
-					order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
-					if err != nil {
-						log.Println("Erro ao fechar a ordem: ", err)
-						return
-					}
-					if config.Development || order == 200 {
-						util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
-						ordemAtiva = false
-						o := comprarBuy()
-						if o == 200 {
-							side = "BUY"
-							ordemAtiva = true
-							break
-						} else {
-							break
-						}
-					} else {
-						fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
-						ordemAtiva = true
-						break
-					}
-
-				}
-				break
-			} else {
-				fmt.Println("Não tens ordens ativas.")
-				break
-			}
-		case "MARGEM":
+			command = strings.ToUpper(command)
 			cmdRun = true
-			for {
-				fmt.Println("Qual sua margem inferior: ")
-				_, err = fmt.Scanln(&margemInferior)
-				if err != nil {
-					fmt.Println("Erro, tente digitar somente números: ", err)
-					continue
-				}
-				if margemInferior < 0 {
-					fmt.Println("Margem inferior precisa ser maior que 0")
-					continue
-				}
+			switch strings.ToUpper(command) {
+			case "BUY":
+				if !ordemAtiva {
+					o := comprarBuy()
+					if config.Development || o == 200 {
+						side = "BUY"
+						break
+					} else {
+						break
+					}
 
-				fmt.Println("Qual sua margem superior: ")
-				_, err = fmt.Scanln(&margemSuperior)
-				if err != nil {
-					fmt.Println("Erro, tente digitar somente números: ", err)
-					continue
+				} else {
+					fmt.Println("\nJá tem uma ordem ativa.")
+					break
 				}
-				if margemSuperior < 0 {
-					fmt.Println("Margem superior precisa ser maior que 0")
-					continue
+			case "SELL":
+				if !ordemAtiva {
+					o := comprarSell()
+					if config.Development || o == 200 {
+						side = "SELL"
+						break
+					} else {
+						break
+					}
+				} else {
+					fmt.Println("\nJá tem uma ordem ativa.")
+					break
 				}
-				if margemSuperior > margemInferior {
+			case "NEUTRO":
+				neutro = !neutro
+				primeiraOrdem = "N"
+				fmt.Println("Neutro ativado/desativado.")
+				break
+			case "STOP":
+				if ordemAtiva {
+					if side == "BUY" {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
+						if err != nil {
+							log.Println("Erro ao fechar a ordem: ", err)
+							return
+						}
+						if config.Development || order == 200 {
+							util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+							ordemAtiva = false
+							break
+						} else {
+							fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
+							ordemAtiva = true
+							break
+						}
+					} else if side == "SELL" {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
+						if err != nil {
+							log.Println("Erro ao fechar a ordem: ", err)
+							return
+						}
+						if config.Development || order == 200 {
+							util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+							ordemAtiva = false
+							break
+						} else {
+							util.Write("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.", currentCoin+config.BaseCoin)
+							ordemAtiva = true
+							break
+						}
+					}
+
+				} else {
+					fmt.Println("Não tens ordens ativas.")
+					break
+				}
+			case "REVERSE":
+				if ordemAtiva {
+					if side == "BUY" {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
+						if err != nil {
+							log.Println("Erro ao fechar a ordem: ", err)
+							return
+						}
+						if config.Development || order == 200 {
+							util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+							ordemAtiva = false
+							o := comprarSell()
+							if config.Development || o == 200 {
+								side = "SELL"
+								ordemAtiva = true
+								break
+							} else {
+								break
+							}
+						} else {
+							fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
+							ordemAtiva = true
+							break
+						}
+
+					} else if side == "SELL" {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
+						if err != nil {
+							log.Println("Erro ao fechar a ordem: ", err)
+							return
+						}
+						if config.Development || order == 200 {
+							util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+							ordemAtiva = false
+							o := comprarBuy()
+							if o == 200 {
+								side = "BUY"
+								ordemAtiva = true
+								break
+							} else {
+								break
+							}
+						} else {
+							fmt.Println("Erro ao encerrar a ordem, pode tentar novamente digitando STOP.")
+							ordemAtiva = true
+							break
+						}
+
+					}
 					break
 				} else {
-					fmt.Println("Margem Superior precisa ser maior que a Margem Inferior.")
-					continue
+					fmt.Println("Não tens ordens ativas.")
+					break
 				}
-			} // margens
+			case "MARGEM":
+				for {
+					fmt.Println("Qual sua margem inferior: ")
+					_, err = fmt.Scanln(&margemInferior)
+					if err != nil {
+						fmt.Println("Erro, tente digitar somente números: ", err)
+						continue
+					}
+					if margemInferior < 0 {
+						fmt.Println("Margem inferior precisa ser maior que 0")
+						continue
+					}
+
+					fmt.Println("Qual sua margem superior: ")
+					_, err = fmt.Scanln(&margemSuperior)
+					if err != nil {
+						fmt.Println("Erro, tente digitar somente números: ", err)
+						continue
+					}
+					if margemSuperior < 0 {
+						fmt.Println("Margem superior precisa ser maior que 0")
+						continue
+					}
+					if margemSuperior > margemInferior {
+						break
+					} else {
+						fmt.Println("Margem Superior precisa ser maior que a Margem Inferior.")
+						continue
+					}
+				} // margens
+				break
+			case "VALUE":
+				for {
+					fmt.Print("Digite a quantidade em " + config.BaseCoin + ": ")
+					_, err = fmt.Scanln(&value)
+					if err != nil {
+						fmt.Println("Erro, tente digitar somente números: ", err)
+						continue
+					}
+					if value > 0 {
+						break
+					} else {
+						fmt.Println("Por favor, digite um valor válido.")
+					}
+				} // value
+			case "ENTRADA":
+				if entrada == "VELAS" {
+					for {
+						fmt.Println("Quantos segundos quer que cada vela? (Máximo 100)")
+						_, err = fmt.Scanln(&velasperiodo)
+						if err != nil {
+							fmt.Println("Erro, tente digitar somente números: ", err)
+							continue
+						}
+						if velasperiodo > 0 && velasperiodo <= 100 {
+							break
+						} else {
+							continue
+						}
+					} // Quantidade de segundos que terá cada vela
+					qtdPermitida := int64(math.Floor(300 / float64(velasperiodo)))
+					for {
+						fmt.Printf("Quantas velas quer calcular?. Máximo: %d\n", qtdPermitida)
+						_, err = fmt.Scanln(&velasqtd)
+						if err != nil {
+							fmt.Println("Erro, tente digitar somente números: ", err)
+							continue
+						}
+						if velasqtd > qtdPermitida {
+							fmt.Println("Ultrapassou a quantidade máxima permitida.")
+							continue
+						} else if velasqtd < 2 {
+							fmt.Println("É preciso pelo menos 2 velas para fazer uma comparação")
+							continue
+						} else {
+							break
+						}
+					} // Quantidade de velas que irá ser usado como comparação
+				} else if entrada == "SEGUNDOS" {
+					for {
+						fmt.Println("Quantos segundos quer comparar para entrada (2 - 60): ")
+						_, err = fmt.Scanln(&segEntrada)
+						if err != nil {
+							fmt.Println("Erro, tente digitar somente números: ", err)
+							continue
+						}
+						if segEntrada > 60 {
+							fmt.Println("Só é permitido comparar os ultimos 60 segundos.")
+							continue
+						} else if segEntrada < 2 {
+							fmt.Println("Só é permitido comparar pelo menos 2 segundos.")
+							continue
+						} else if segEntrada >= 2 && segEntrada <= 60 {
+							segEntrada++
+							break
+						}
+
+					} // Quantidade de segundos para entrada
+				}
+			case "SAIDA":
+				if entrada == "VELAS" {
+					for {
+						fmt.Println("Quantos segundos quer comparar para saída (2 - 60): ")
+						_, err = fmt.Scanln(&segSaida)
+						if err != nil {
+							fmt.Println("Erro, tente digitar somente números: ", err)
+							continue
+						}
+						if segSaida > 60 {
+							fmt.Println("Só é permitido comparar os ultimos 60 segundos.")
+							continue
+						} else if segSaida < 2 {
+							fmt.Println("Só é permitido comparar pelo menos 2 segundos.")
+							continue
+						} else if segSaida >= 2 && segSaida <= 60 {
+							segSaida++
+							break
+						}
+
+					} // Quantidade de segundos para saída
+				} else if entrada == "SEGUNDOS" {
+					for {
+						fmt.Println("Quantos segundos quer comparar para saída (2 - 60): ")
+						_, err = fmt.Scanln(&segSaida)
+						if err != nil {
+							fmt.Println("Erro, tente digitar somente números: ", err)
+							continue
+						}
+						if segSaida > 60 {
+							fmt.Println("Só é permitido comparar os ultimos 60 segundos.")
+							continue
+						} else if segSaida < 2 {
+							fmt.Println("Só é permitido comparar pelo menos 2 segundos.")
+							continue
+						} else if segSaida >= 2 && segSaida <= 60 {
+							segSaida++
+							break
+						}
+
+					} // Quantidade de segundos para saída
+				}
+			case "SL":
+				for {
+					fmt.Println("Qual o Stop Loss que deseja trabalhar em porcentagem (ex: 0.5): ")
+					_, err = fmt.Scanln(&stop)
+					if err != nil {
+						fmt.Println("Erro, tente digitar somente números: ", err)
+						continue
+					}
+					if stop > 0 {
+						break
+					} else {
+						fmt.Println("Stop Loss precisa ser maior que 0")
+						continue
+					}
+				} // stopLoss
+			case "SLT":
+				for {
+					fmt.Println("Qual o Stop Loss TOTAL que deseja trabalhar em porcentagem (ex: 0.5): ")
+					_, err = fmt.Scanln(&stopLossAll)
+					if err != nil {
+						fmt.Println("Erro, tente digitar somente números: ", err)
+						continue
+					}
+					if stopLossAll > stop {
+						break
+					} else {
+						fmt.Println("Stop Loss TOTAL precisa ser maior que o Stop Loss por Ordem")
+						continue
+					}
+				} // stopLoss Total
+			default:
+				fmt.Println("Comando inválido. Tente: BUY(Entrar em LONG imediatamente), SELL(Entrar em SHORT imediatamente), NEUTRO(Ativar/Desativar Neutro), REVERSE(Trocar de lado imediatamente), STOP(Parar a ordem imeditamente).")
+				break
+			}
 			cmdRun = false
-			break
-		default:
-			fmt.Println("Comando inválido. Tente: BUY(Entrar em LONG imediatamente), SELL(Entrar em SHORT imediatamente), NEUTRO(Ativar/Desativar Neutro), REVERSE(Trocar de lado imediatamente), STOP(Parar a ordem imeditamente).")
-			break
 		}
+	} else {
+		fmt.Println("Não posso executar comandos ainda.")
 	}
 }
