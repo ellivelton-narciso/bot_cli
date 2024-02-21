@@ -68,6 +68,20 @@ type Bots struct {
 	Coin string `json:"coin"`
 }
 
+type BotHistory struct {
+	AccountKey    string    `gorm:"column:account_key" json:"account_key"`
+	HistDate      time.Time `gorm:"column:hist_date" json:"hist_date"`
+	CurrValue     float64   `gorm:"column:curr_value" json:"curr_value"`
+	Command       string    `gorm:"column:command" json:"command"`
+	CommandParams string    `gorm:"column:commmand_params" json:"commmand_params"`
+	AccumRoi      float64   `gorm:"column:accum_roi" json:"accum_roi"`
+	TradingName   string    `gorm:"column:trading_name" json:"trading_name"`
+}
+
 func (Historico) TableName() string {
 	return "historico"
+}
+
+func (BotHistory) TableName() string {
+	return "bot_history"
 }
