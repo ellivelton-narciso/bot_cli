@@ -2,6 +2,7 @@ package util
 
 import (
 	"binance_robot/config"
+	"binance_robot/database"
 	"binance_robot/models"
 	"encoding/json"
 	"fmt"
@@ -128,4 +129,22 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
 	fmt.Println(string(body))
+}
+
+func SalvarHistorico(coin string, command string, commandParams string, currValue float64, accumRoi float64) error {
+
+	if !config.Development {
+		config.ReadFile()
+		basecoin := coin + config.BaseCoin
+
+		query := fmt.Sprintf("INSERT INTO bot_history (account_key, hist_date, curr_value, command, commmand_params, accum_roi, trading_name) VALUES ('%s', NOW(), %f, '%s', '%s', %f, '%s')",
+			config.ApiKey, currValue, command, commandParams, accumRoi, basecoin)
+		if err := database.DB.Exec(query).Error; err != nil {
+			return err
+		}
+
+		return nil
+	} else {
+		return nil
+	}
 }
