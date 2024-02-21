@@ -72,11 +72,18 @@ var (
 
 func main() {
 	database.DBCon()
-
 	config.ReadFile()
 
 	red = color.New(color.FgHiRed).SprintFunc()
 	green = color.New(color.FgGreen).SprintFunc()
+	cmdRun = false
+	ordemAtiva = false
+	primeiraExec = true
+	valueCompradoCoin = 0.0
+	roiAcumulado = 0.0
+	fee := 0.05
+	longsSeguidas = 0
+	shortsSeguidas = 0
 
 	for {
 		fmt.Print("Digite a moeda (ex: BTC): ")
@@ -196,13 +203,13 @@ func main() {
 	} // VELAS ou SEGUNDOS
 	if entrada == "VELAS" {
 		for {
-			fmt.Println("Quantos segundos quer que cada vela? (Máximo 100)")
+			fmt.Println("Quantos segundos quer que cada vela? (Min 3 - Máx 100)")
 			_, err = fmt.Scanln(&velasperiodo)
 			if err != nil {
 				fmt.Println("Erro, tente digitar somente números: ", err)
 				continue
 			}
-			if velasperiodo > 0 && velasperiodo <= 100 {
+			if velasperiodo > 2 && velasperiodo <= 100 {
 				break
 			} else {
 				continue
@@ -210,7 +217,7 @@ func main() {
 		} // Quantidade de segundos que terá cada vela
 		qtdPermitida := int64(math.Floor(300 / float64(velasperiodo)))
 		for {
-			fmt.Printf("Quantas velas quer calcular?. Máximo: %d\n", qtdPermitida)
+			fmt.Printf("Quantas velas quer calcular?. Min 2 -  Máx: %d\n", qtdPermitida)
 			_, err = fmt.Scanln(&velasqtd)
 			if err != nil {
 				fmt.Println("Erro, tente digitar somente números: ", err)
@@ -357,15 +364,6 @@ func main() {
 	} // TAKEPROFIT Total
 
 	fmt.Println("Para parar as transações pressione Ctrl + C")
-
-	ordemAtiva = false
-	primeiraExec = true
-	cmdRun = false
-	valueCompradoCoin = 0.0
-	roiAcumulado = 0.0
-	fee := 0.05
-	longsSeguidas = 0
-	shortsSeguidas = 0
 
 	util.DefinirAlavancagem(currentCoin, alavancagem)
 
@@ -1346,13 +1344,13 @@ func handleCommands() {
 			case "ENTRADA":
 				if entrada == "VELAS" {
 					for {
-						fmt.Println("Quantos segundos quer que cada vela? (Máximo 100)")
+						fmt.Println("Quantos segundos quer que cada vela? (Min 3 - Máx 100)")
 						_, err = fmt.Scanln(&velasperiodo)
 						if err != nil {
 							fmt.Println("Erro, tente digitar somente números: ", err)
 							continue
 						}
-						if velasperiodo > 0 && velasperiodo <= 100 {
+						if velasperiodo > 2 && velasperiodo <= 100 {
 							break
 						} else {
 							continue
@@ -1360,7 +1358,7 @@ func handleCommands() {
 					} // Quantidade de segundos que terá cada vela
 					qtdPermitida := int64(math.Floor(300 / float64(velasperiodo)))
 					for {
-						fmt.Printf("Quantas velas quer calcular?. Máximo: %d\n", qtdPermitida)
+						fmt.Printf("Quantas velas quer calcular?. Min 2 -  Máx: %d\n", qtdPermitida)
 						_, err = fmt.Scanln(&velasqtd)
 						if err != nil {
 							fmt.Println("Erro, tente digitar somente números: ", err)
