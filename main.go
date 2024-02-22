@@ -1580,6 +1580,20 @@ func handleCommands() {
 						continue
 					}
 				} // stopLoss Total
+			case "TP":
+				for {
+					fmt.Println("Qual será seu TAKE PROFIT em % total? (Ao atingir o valor a aplicação será encerrada totalmente).")
+					_, err = fmt.Scanln(&roi)
+					if err != nil {
+						fmt.Println("Erro, tente digitar somente números: ", err)
+						continue
+					}
+					if roi <= 0 {
+						fmt.Println("TAKEPROFIT precisa ser maior que 0")
+					} else {
+						break
+					}
+				} // TAKEPROFIT Total
 			default:
 				fmt.Println("Comando inválido. Tente: BUY(Entrar em LONG imediatamente), SELL(Entrar em SHORT imediatamente), NEUTRO(Ativar/Desativar Neutro), REVERSE(Trocar de lado imediatamente), STOP(Parar a ordem imeditamente).")
 				break
