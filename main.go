@@ -68,11 +68,16 @@ var (
 	green             func(a ...interface{}) string
 	cmdRun            bool
 	printUltimos      bool
+	roiTempoReal      float64
 )
 
 func main() {
 	database.DBCon()
 	config.ReadFile()
+
+	if config.ApiKey == "" || config.SecretKey == "" || config.BaseURL == "" || config.BaseCoin == "" {
+		log.Panic("Arquivo user.json incompleto.")
+	}
 
 	red = color.New(color.FgHiRed).SprintFunc()
 	green = color.New(color.FgGreen).SprintFunc()
@@ -81,6 +86,7 @@ func main() {
 	primeiraExec = true
 	valueCompradoCoin = 0.0
 	roiAcumulado = 0.0
+	roiTempoReal = 0.0
 	fee := 0.05
 	longsSeguidas = 0
 	shortsSeguidas = 0
@@ -365,9 +371,9 @@ func main() {
 
 	fmt.Println("Para parar as transações pressione Ctrl + C")
 
-	util.DefinirAlavancagem(currentCoin, alavancagem)
-
 	go handleCommands()
+
+	util.DefinirAlavancagem(currentCoin, alavancagem)
 
 	// Encerrar a aplicação graciosamente
 	sigChan := make(chan os.Signal, 1)
@@ -376,6 +382,7 @@ func main() {
 	go func() {
 		sig := <-sigChan
 		fmt.Printf("Sinal capturado: %v\n", sig)
+		roiTempoReal = roiAcumulado + ROI
 
 		if ordemAtiva {
 			if side == "BUY" {
@@ -386,7 +393,7 @@ func main() {
 				}
 				if config.Development || order == 200 {
 					util.Write("Ordens encerradas com sucesso ao finalizar a aplicação.", currentCoin+config.BaseCoin)
-					err = util.SalvarHistorico(currentCoin, side, "EXIT", currentValue, roiAcumulado)
+					err = util.SalvarHistorico(currentCoin, side, "EXIT", currentPrice, roiTempoReal)
 					if err != nil {
 						util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 					}
@@ -401,13 +408,19 @@ func main() {
 				}
 				if config.Development || order == 200 {
 					util.Write("Ordens encerradas com sucesso ao finalizar a aplicação.", currentCoin+config.BaseCoin)
-					err = util.SalvarHistorico(currentCoin, side, "EXIT", currentValue, roiAcumulado)
+					err = util.SalvarHistorico(currentCoin, side, "EXIT", currentPrice, roiTempoReal)
 					if err != nil {
 						util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 					}
 				} else {
 					util.Write("Erro ao encerrar ordem. Finalize manulmente no site da Binance.", currentCoin+config.BaseCoin)
 				}
+			}
+		} else {
+			fmt.Println(roiAcumulado)
+			err = util.SalvarHistorico(currentCoin, side, "EXIT", currentPrice, roiAcumulado)
+			if err != nil {
+				util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 			}
 		}
 		err = criar_ordem.RemoverCoinDB(currentCoin)
@@ -430,7 +443,7 @@ func main() {
 			}
 			primeiraExec = false
 			fmt.Println("Iniciado!! Aguarde a primeira ordem.")
-			err = util.SalvarHistorico(currentCoin, side, "START", currentValue, roiAcumulado)
+			err = util.SalvarHistorico(currentCoin, side, "START", currentPrice, roiAcumulado)
 			if err != nil {
 				util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 			}
@@ -480,7 +493,7 @@ func main() {
 									ordemAtiva = true
 								} else {
 									ordemAtiva = o == 200
-									err = util.SalvarHistorico(currentCoin, "BUY", "COMPRA_BOT", currentValue, roiAcumulado)
+									err = util.SalvarHistorico(currentCoin, "BUY", "COMPRA_BOT", currentPrice, roiTempoReal)
 									if err != nil {
 										util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 									}
@@ -516,7 +529,7 @@ func main() {
 								ordemAtiva = true
 							} else {
 								ordemAtiva = o == 200
-								err = util.SalvarHistorico(currentCoin, "BUY", "COMPRA_BOT", currentValue, roiAcumulado)
+								err = util.SalvarHistorico(currentCoin, "BUY", "COMPRA_BOT", currentPrice, roiTempoReal)
 								if err != nil {
 									util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 								}
@@ -548,7 +561,7 @@ func main() {
 									ordemAtiva = true
 								} else {
 									ordemAtiva = o == 200
-									err = util.SalvarHistorico(currentCoin, "SELL", "COMPRA_BOT", currentValue, roiAcumulado)
+									err = util.SalvarHistorico(currentCoin, "SELL", "COMPRA_BOT", currentPrice, roiTempoReal)
 									if err != nil {
 										util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 									}
@@ -585,7 +598,7 @@ func main() {
 								ordemAtiva = true
 							} else {
 								ordemAtiva = o == 200
-								err = util.SalvarHistorico(currentCoin, "SELL", "COMPRA_BOT", currentValue, roiAcumulado)
+								err = util.SalvarHistorico(currentCoin, "SELL", "COMPRA_BOT", currentPrice, roiTempoReal)
 								if err != nil {
 									util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 								}
@@ -659,7 +672,7 @@ func main() {
 			formattedTime := timeValue.Format("2006-01-02 15:04:05")
 			if side == "BUY" {
 				ROI = (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
-				roiTempoReal := roiAcumulado + ROI
+				roiTempoReal = roiAcumulado + ROI
 				if ROI > 0 {
 					ROIStr = green(fmt.Sprintf("%.4f", ROI) + "%")
 				} else {
@@ -690,7 +703,7 @@ func main() {
 					}
 					if config.Development || order == 200 {
 						ordemAtiva = false
-						err = util.SalvarHistorico(currentCoin, side, "TPTOTAL_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "TPTOTAL_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -722,7 +735,7 @@ func main() {
 						}
 						if config.Development || order == 200 {
 							ordemAtiva = false
-							err = util.SalvarHistorico(currentCoin, side, "TPORDEM_BOT", currentValue, roiAcumulado)
+							err = util.SalvarHistorico(currentCoin, side, "TPORDEM_BOT", currentPrice, roiTempoReal)
 							if err != nil {
 								util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 							}
@@ -746,7 +759,7 @@ func main() {
 						return
 					}
 					if config.Development || order == 200 {
-						err = util.SalvarHistorico(currentCoin, side, "MARGEM_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "MARGEM_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -827,7 +840,7 @@ func main() {
 					}
 					if config.Development || order == 200 {
 						ordemAtiva = false
-						err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -858,7 +871,7 @@ func main() {
 						}
 						if config.Development || order == 200 {
 							ordemAtiva = false
-							err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentValue, roiAcumulado)
+							err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentPrice, roiTempoReal)
 							if err != nil {
 								util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 							}
@@ -881,7 +894,7 @@ func main() {
 						return
 					}
 					if config.Development || order == 200 {
-						err = util.SalvarHistorico(currentCoin, side, "SLTOTAL_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "SLTOTAL_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -924,7 +937,7 @@ func main() {
 					}
 					if config.Development || order == 200 {
 						ordemAtiva = false
-						err = util.SalvarHistorico(currentCoin, side, "TPTOTAL_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "TPTOTAL_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -957,7 +970,7 @@ func main() {
 						}
 						if config.Development || order == 200 {
 							ordemAtiva = false
-							err = util.SalvarHistorico(currentCoin, side, "TPORDEM_BOT", currentValue, roiAcumulado)
+							err = util.SalvarHistorico(currentCoin, side, "TPORDEM_BOT", currentPrice, roiTempoReal)
 							if err != nil {
 								util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 							}
@@ -981,7 +994,7 @@ func main() {
 						return
 					}
 					if config.Development || order == 200 {
-						err = util.SalvarHistorico(currentCoin, side, "MARGEM_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "MARGEM_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -1062,7 +1075,7 @@ func main() {
 					}
 					if config.Development || order == 200 {
 						ordemAtiva = false
-						err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -1093,7 +1106,7 @@ func main() {
 						}
 						if config.Development || order == 200 {
 							ordemAtiva = false
-							err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentValue, roiAcumulado)
+							err = util.SalvarHistorico(currentCoin, side, "SLORDEM_BOT", currentPrice, roiTempoReal)
 							if err != nil {
 								util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 							}
@@ -1117,7 +1130,7 @@ func main() {
 						return
 					}
 					if config.Development || order == 200 {
-						err = util.SalvarHistorico(currentCoin, side, "SLTOTAL_BOT", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "SLTOTAL_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -1214,7 +1227,7 @@ func comprarSell() int {
 }
 
 func handleCommands() {
-	if !primeiraExec && !cmdRun {
+	if !cmdRun {
 		for {
 			_, err = fmt.Scanln(&command)
 			if err != nil {
@@ -1229,7 +1242,7 @@ func handleCommands() {
 					o := comprarBuy()
 					if config.Development || o == 200 {
 						side = "BUY"
-						err = util.SalvarHistorico(currentCoin, side, "BUY_CMD", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "BUY_CMD", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -1247,7 +1260,7 @@ func handleCommands() {
 					o := comprarSell()
 					if config.Development || o == 200 {
 						side = "SELL"
-						err = util.SalvarHistorico(currentCoin, side, "SELL_CMD", currentValue, roiAcumulado)
+						err = util.SalvarHistorico(currentCoin, side, "SELL_CMD", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -1281,7 +1294,7 @@ func handleCommands() {
 						if config.Development || order == 200 {
 							util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
 							ordemAtiva = false
-							err = util.SalvarHistorico(currentCoin, side, "STOP_CMD", currentValue, roiAcumulado)
+							err = util.SalvarHistorico(currentCoin, side, "STOP_CMD", currentPrice, roiAcumulado)
 							if err != nil {
 								util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 							}
@@ -1306,7 +1319,7 @@ func handleCommands() {
 						if config.Development || order == 200 {
 							util.Write("Ordem encerrada manualmente. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
 							ordemAtiva = false
-							err = util.SalvarHistorico(currentCoin, side, "STOP_CMD", currentValue, roiAcumulado)
+							err = util.SalvarHistorico(currentCoin, side, "STOP_CMD", currentPrice, roiAcumulado)
 							if err != nil {
 								util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 							}
@@ -1343,7 +1356,7 @@ func handleCommands() {
 							if config.Development || o == 200 {
 								side = "SELL"
 								ordemAtiva = true
-								err = util.SalvarHistorico(currentCoin, side, "REVERSE_CMD", currentValue, roiAcumulado)
+								err = util.SalvarHistorico(currentCoin, side, "REVERSE_CMD", currentPrice, roiAcumulado)
 								if err != nil {
 									util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 								}
@@ -1376,7 +1389,7 @@ func handleCommands() {
 							if o == 200 {
 								side = "BUY"
 								ordemAtiva = true
-								err = util.SalvarHistorico(currentCoin, side, "REVERSE_CMD", currentValue, roiAcumulado)
+								err = util.SalvarHistorico(currentCoin, side, "REVERSE_CMD", currentPrice, roiTempoReal)
 								if err != nil {
 									util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 								}
