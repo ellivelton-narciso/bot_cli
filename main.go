@@ -760,6 +760,7 @@ func main() {
 					}
 					if config.Development || order == 200 {
 						err = util.SalvarHistorico(currentCoin, side, "MARGEM_BOT", currentPrice, roiTempoReal)
+						ordemAtiva = false
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
 						}
@@ -819,7 +820,6 @@ func main() {
 								continue
 							}
 						} // margens
-						ordemAtiva = false
 					} else {
 						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
 						ordemAtiva = true
@@ -994,6 +994,7 @@ func main() {
 						return
 					}
 					if config.Development || order == 200 {
+						ordemAtiva = false
 						err = util.SalvarHistorico(currentCoin, side, "MARGEM_BOT", currentPrice, roiTempoReal)
 						if err != nil {
 							util.Write(red("Erro ao salvar histórico: ", err), currentCoin)
@@ -1054,7 +1055,6 @@ func main() {
 								continue
 							}
 						} // margens
-						ordemAtiva = false
 					} else {
 						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
 						ordemAtiva = true
