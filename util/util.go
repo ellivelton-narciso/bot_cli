@@ -43,7 +43,7 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 		fmt.Println("Erro ao decodificar JSON:", err)
 	}
 
-	//precision := GetPrecision(priceResp.Price)
+	precision := GetPrecision(priceResp.Price)
 
 	price, err := strconv.ParseFloat(priceResp.Price, 64)
 	if err != nil {
@@ -51,7 +51,7 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 	}
 
 	q := value / price
-	quantity := math.Round(q*math.Pow(10, float64(0))) / math.Pow(10, float64(0))
+	quantity := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
 
 	return quantity
 }
