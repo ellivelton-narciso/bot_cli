@@ -374,6 +374,7 @@ func main() {
 	go handleCommands()
 
 	util.DefinirAlavancagem(currentCoin, alavancagem)
+	util.DefinirMargim(currentCoin, "ISOLATED")
 
 	// Encerrar a aplicação graciosamente
 	sigChan := make(chan os.Signal, 1)

@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -124,4 +125,34 @@ func SalvarHistorico(coin string, command string, commandParams string, currValu
 	} else {
 		return nil
 	}
+}
+
+func DefinirMargim(currentCoin, margim string) {
+	now := time.Now()
+	timestamp := now.UnixMilli()
+	margim = strings.ToUpper(margim)
+	apiParams := "symbol=" + currentCoin + config.BaseCoin + "&marginType=" + margim + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
+	url := config.BaseURL + "fapi/v1/marginType?" + apiParams + "&signature=" + signature
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
+	fmt.Println(string(body))
+
 }
