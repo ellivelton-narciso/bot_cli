@@ -72,7 +72,7 @@ func Write(message, coin string) {
 	log.SetOutput(file)
 
 	log.Println(stripColor(message))
-	fmt.Println(message)
+	//fmt.Println(message)
 }
 
 func stripColor(message string) string {
@@ -109,24 +109,6 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 	fmt.Println(string(body))
 }
 
-func SalvarHistorico(coin string, command string, commandParams string, currValue float64, accumRoi float64) error {
-
-	if !config.Development {
-		config.ReadFile()
-		basecoin := coin + config.BaseCoin
-
-		query := fmt.Sprintf("INSERT INTO bot_history (account_key, hist_date, curr_value, command, commmand_params, accum_roi, trading_name) VALUES ('%s', NOW(), %f, '%s', '%s', %f, '%s')",
-			config.ApiKey, currValue, command, commandParams, accumRoi, basecoin)
-		if err := database.DB.Exec(query).Error; err != nil {
-			return err
-		}
-
-		return nil
-	} else {
-		return nil
-	}
-}
-
 func DefinirMargim(currentCoin, margim string) {
 	now := time.Now()
 	timestamp := now.UnixMilli()
@@ -155,4 +137,32 @@ func DefinirMargim(currentCoin, margim string) {
 	body, err := ioutil.ReadAll(res.Body)
 	fmt.Println(string(body))
 
+}
+
+func Historico(coin, side, started, parametros string, currValue, entryPrice float64) {
+	config.ReadFile()
+	if config.Development {
+		basecoin := coin + config.BaseCoin
+
+		query := "SELECT COUNT(*) FROM hist_transactions WHERE coin = ? AND started_at = ?"
+		var count int
+		err := database.DB.Exec(query, basecoin, started).Scan(&count)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if count > 0 {
+			query = "UPDATE hist_transactions SET " + parametros + " = ?, " + parametros + "_time = NOW() WHERE coin = ? AND started_at = ? AND side = ?"
+			err = database.DB.Exec(query, currValue, basecoin, started, side)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			query = "INSERT INTO hist_transactions (coin, side, entryPrice, started_at) VALUES (?, ?, ?, ?)"
+			err = database.DB.Exec(query, basecoin, side, entryPrice, started)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
 }

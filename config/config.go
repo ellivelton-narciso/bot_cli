@@ -10,11 +10,17 @@ import (
 )
 
 type UserStruct struct {
-	ApiKey      string `json:"apiKey"`
-	SecretKey   string `json:"secretKey"`
-	BaseURL     string `json:"baseURL"`
-	BaseCoin    string `json:"baseCoin"`
-	Development bool   `json:"development"`
+	ApiKey      string  `json:"apiKey"`
+	SecretKey   string  `json:"secretKey"`
+	BaseURL     string  `json:"baseURL"`
+	BaseCoin    string  `json:"baseCoin"`
+	Development bool    `json:"development"`
+	TP1         float64 `json:tp1`
+	TP2         float64 `json:tp2`
+	TP3         float64 `json:tp3`
+	SL1         float64 `json:sl1`
+	SL2         float64 `json:sl2`
+	SL3         float64 `json:sl3`
 }
 type ConfigStruct struct {
 	Host   string `json:"host"`
@@ -34,6 +40,12 @@ var (
 	Pass        string
 	Port        string
 	DBname      string
+	TP1         float64
+	TP2         float64
+	TP3         float64
+	SL1         float64
+	SL2         float64
+	SL3         float64
 	Development bool
 	Config      ConfigStruct
 	UserConfig  UserStruct
@@ -63,6 +75,12 @@ func ReadFile() {
 	Pass = Config.Pass
 	Port = Config.Port
 	DBname = Config.Dbname
+	TP1 = UserConfig.TP1
+	TP2 = UserConfig.TP2
+	TP3 = UserConfig.TP3
+	SL1 = UserConfig.SL1
+	SL2 = UserConfig.SL2
+	SL3 = UserConfig.SL3
 
 }
 
