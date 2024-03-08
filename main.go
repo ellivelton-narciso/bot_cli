@@ -127,9 +127,8 @@ func main() {
 
 		os.Exit(0)
 	}()
-
+	criar_ordem.EnviarCoinDB(currentCoin)
 	for {
-		criar_ordem.EnviarCoinDB(currentCoin)
 
 		if primeiraExec {
 			time.Sleep(2 * time.Second)
@@ -353,9 +352,9 @@ func setupCommands(app *cli.App) {
 			Action: func(c *cli.Context) error {
 				currentCoin = c.String("coin")
 				value = c.Float64("value")
-				side = c.String("side")
-				alavancagem = c.Float64("alavancagem")
 				stop = c.Float64("stop")
+				side = c.String("side")
+				alavancagem = c.Float64("leverage")
 
 				return nil
 			},
@@ -375,18 +374,18 @@ func setupCommands(app *cli.App) {
 					Name:    "stop",
 					Value:   1.5,
 					Usage:   "Definir o Stop Loss da Ordem.",
-					Aliases: []string{"sl"},
+					Aliases: []string{"s"},
 				},
 				&cli.StringFlag{
 					Name:    "side",
 					Usage:   "Direção da ordem (BUY, SELL, LONG, SHORT)",
-					Aliases: []string{"s"},
+					Aliases: []string{"i"},
 				},
 				&cli.Float64Flag{
 					Name:    "leverage",
 					Value:   1,
 					Usage:   "Definir a alavancagem.",
-					Aliases: []string{"le"},
+					Aliases: []string{"l"},
 				},
 			},
 		},
