@@ -52,6 +52,9 @@ func ReadFile() {
 	err = json.Unmarshal(user, &UserConfig)
 
 	err = godotenv.Load()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	ApiKey = UserConfig.ApiKey
 	SecretKey = UserConfig.SecretKey
