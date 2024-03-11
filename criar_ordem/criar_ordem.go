@@ -4,6 +4,7 @@ import (
 	"binance_robot/config"
 	"binance_robot/database"
 	"binance_robot/models"
+	"binance_robot/util"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,7 +19,7 @@ func CriarOrdem(coin string, side string, quantity string) (int, error) {
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "" + config.BaseCoin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
@@ -43,7 +44,7 @@ func CriarOrdem(coin string, side string, quantity string) (int, error) {
 	}
 
 	if res.StatusCode != 200 {
-		fmt.Println(string(body))
+		util.Write(string(body), coin)
 	}
 	//fmt.Println(string(body))
 	//fmt.Println(res.StatusCode)
@@ -57,17 +58,13 @@ func CriarOrdem(coin string, side string, quantity string) (int, error) {
 }
 
 func EnviarCoinDB(coin string) {
-	config.ReadFile()
-
-	basecoin := coin + config.BaseCoin
-
 	var bot models.Bots
-	result := database.DB.Where("coin = ?", basecoin).First(&bot)
+	result := database.DB.Where("coin = ?", coin).First(&bot)
 	if result.RowsAffected > 0 {
 		return
 	}
 
-	if err := database.DB.Create(&models.Bots{Coin: basecoin}).Error; err != nil {
+	if err := database.DB.Create(&models.Bots{Coin: coin}).Error; err != nil {
 		fmt.Println("\n Erro ao inserir coin na DB: ", err)
 	}
 
@@ -75,11 +72,7 @@ func EnviarCoinDB(coin string) {
 }
 
 func RemoverCoinDB(coin string) error {
-	config.ReadFile()
-
-	basecoin := coin + config.BaseCoin
-
-	if err := database.DB.Where("coin = ?", basecoin).Delete(&models.Bots{}).Error; err != nil {
+	if err := database.DB.Where("coin = ?", coin).Delete(&models.Bots{}).Error; err != nil {
 		fmt.Println("\n Erro ao remover coin na DB: ", err)
 		return err
 	}

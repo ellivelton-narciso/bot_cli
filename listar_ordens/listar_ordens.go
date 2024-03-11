@@ -19,7 +19,7 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 	now := time.Now()
 	timestamp := now.UnixMilli()
 
-	apiParams := "symbol=" + coin + "" + config.BaseCoin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParams := "symbol=" + coin + "" + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 
 	url := config.BaseURL + "fapi/v2/positionRisk?" + apiParams + "&signature=" + signature
@@ -68,7 +68,7 @@ func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
 
 	var priceResp []models.PriceResponse
 	for _, item := range priceRespAll {
-		if item.Symbol == coin+config.BaseCoin {
+		if item.Symbol == coin {
 			priceResp = append(priceResp, item)
 		}
 	}

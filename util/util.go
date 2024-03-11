@@ -6,6 +6,7 @@ import (
 	"binance_robot/models"
 	"encoding/json"
 	"fmt"
+	"gorm.io/gorm"
 	"io"
 	"io/ioutil"
 	"log"
@@ -22,12 +23,13 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 
 	config.ReadFile()
 
-	url := config.BaseURL + "fapi/v1/ticker/price?symbol=" + coin + config.BaseCoin
+	url := config.BaseURL + "fapi/v1/ticker/price?symbol=" + coin
 	req, _ := http.NewRequest("GET", url, nil)
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("Erro ao acessar a API para converter: ", err)
+		WriteError("Erro ao acessar a API para converter: ", err, coin)
+		os.Exit(1)
 
 	}
 
@@ -74,6 +76,34 @@ func Write(message, coin string) {
 	log.Println(stripColor(message))
 	//fmt.Println(message)
 }
+func WriteErrorDB(message string, erro *gorm.DB, coin string) {
+	filepath := "logs/log-" + coin
+
+	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	defer file.Close()
+
+	log.SetOutput(file)
+
+	log.Println(message, erro)
+	//fmt.Println(message, erro)
+}
+func WriteError(message string, erro error, coin string) {
+	filepath := "logs/log-" + coin
+
+	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	defer file.Close()
+
+	log.SetOutput(file)
+
+	log.Println(message, erro)
+
+}
 
 func stripColor(message string) string {
 	regex := regexp.MustCompile("\x1b\\[[0-9;]*m")
@@ -83,7 +113,7 @@ func stripColor(message string) string {
 func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParams := "symbol=" + currentCoin + config.BaseCoin + "&leverage=" + fmt.Sprint(alavancagem) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParams := "symbol=" + currentCoin + "&leverage=" + fmt.Sprint(alavancagem) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 	url := config.BaseURL + "fapi/v1/leverage?" + apiParams + "&signature=" + signature
 
@@ -106,14 +136,14 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 		}
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
-	fmt.Println(string(body))
+	Write(string(body), currentCoin)
 }
 
 func DefinirMargim(currentCoin, margim string) {
 	now := time.Now()
 	timestamp := now.UnixMilli()
 	margim = strings.ToUpper(margim)
-	apiParams := "symbol=" + currentCoin + config.BaseCoin + "&marginType=" + margim + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParams := "symbol=" + currentCoin + "&marginType=" + margim + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 	url := config.BaseURL + "fapi/v1/marginType?" + apiParams + "&signature=" + signature
 	req, err := http.NewRequest("POST", url, nil)
@@ -135,34 +165,53 @@ func DefinirMargim(currentCoin, margim string) {
 		}
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
-	fmt.Println(string(body))
+	Write(string(body), currentCoin)
 
 }
 
 func Historico(coin, side, started, parametros string, currValue, entryPrice float64) {
 	config.ReadFile()
-	if config.Development {
-		basecoin := coin + config.BaseCoin
+	basecoin := coin
+	count := contagemRows(basecoin, started)
 
-		query := "SELECT COUNT(*) FROM hist_transactions WHERE coin = ? AND started_at = ?"
-		var count int
-		err := database.DB.Exec(query, basecoin, started).Scan(&count)
-		if err != nil {
-			log.Fatal(err)
+	if count == 1 {
+		query := "UPDATE hist_transactions SET " + parametros + " = ?, " + parametros + "_time = NOW() WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
+		result := database.DB.Exec(query, currValue, basecoin, started, side)
+		if result.Error != nil {
+			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, basecoin)
+			return
 		}
-
-		if count > 0 {
-			query = "UPDATE hist_transactions SET " + parametros + " = ?, " + parametros + "_time = NOW() WHERE coin = ? AND started_at = ? AND side = ?"
-			err = database.DB.Exec(query, currValue, basecoin, started, side)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			query = "INSERT INTO hist_transactions (coin, side, entryPrice, started_at) VALUES (?, ?, ?, ?)"
-			err = database.DB.Exec(query, basecoin, side, entryPrice, started)
-			if err != nil {
-				log.Fatal(err)
-			}
+	} else {
+		query := "INSERT INTO hist_transactions (coin, side, entryPrice, started_at) VALUES (?, ?, ?, ?)"
+		result := database.DB.Exec(query, basecoin, side, entryPrice, started)
+		if result.Error != nil {
+			WriteError("Erro ao inserir dados iniciais da moeda na tabela hist_transactions: ", result.Error, basecoin)
+			return
 		}
 	}
+}
+
+func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
+	count := contagemRows(coin, started)
+
+	if count == 1 {
+		query := "UPDATE hist_transactions SET final_price = ?, final_time = NOW(), final_roi = ? WHERE coin = ? AND started_at = ? AND side = ?"
+		result := database.DB.Exec(query, currValue, roi, coin, started, side)
+		if result.Error != nil {
+			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, coin)
+			return
+		}
+	}
+}
+
+func contagemRows(basecoin, started string) int {
+	query := "SELECT COUNT(*) FROM hist_transactions WHERE coin = ? AND started_at = ?"
+
+	var count int
+	result := database.DB.Raw(query, basecoin, started).Scan(&count)
+	if result.Error != nil {
+		WriteError("Erro ao buscar a quantidade de linhas na tabela historico: ", result.Error, basecoin)
+		return 0
+	}
+	return count
 }

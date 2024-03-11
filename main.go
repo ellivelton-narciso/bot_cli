@@ -12,10 +12,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -36,15 +34,16 @@ var (
 	allOrders         []models.CryptoPosition
 	ultimosSaida      []models.PriceResponse
 	now               time.Time
+	start             time.Time
 	ROI               float64
 	order             int
 	roiAcumuladoStr   string
 	roiTempoRealStr   string
 	red               func(a ...interface{}) string
 	green             func(a ...interface{}) string
-	roiTempoReal      float64
 	roiMaximo         float64
 	started           string
+	takeprofit        float64
 )
 
 func main() {
@@ -57,7 +56,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if config.ApiKey == "" || config.SecretKey == "" || config.BaseURL == "" || config.BaseCoin == "" {
+	if config.ApiKey == "" || config.SecretKey == "" || config.BaseURL == "" {
 		log.Panic("Arquivo user.json incompleto.")
 	}
 
@@ -67,7 +66,6 @@ func main() {
 	primeiraExec = true
 	valueCompradoCoin = 0.0
 	roiAcumulado = 0.0
-	roiTempoReal = 0.0
 	fee := 0.05 * alavancagem
 	roiMaximo = 0
 
@@ -79,61 +77,31 @@ func main() {
 		side = "SELL"
 	}
 
-	fmt.Println("Para parar as transações pressione Ctrl + C")
-
 	util.DefinirAlavancagem(currentCoin, alavancagem)
 	util.DefinirMargim(currentCoin, "ISOLATED")
-
-	// Encerrar a aplicação graciosamente
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigChan
-		fmt.Printf("Sinal capturado: %v\n", sig)
-		roiTempoReal = roiAcumulado + ROI
-
-		if ordemAtiva {
-			if side == "BUY" {
-				order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
-				if err != nil {
-					log.Println("Erro ao fechar a ordem: ", err)
-					return
-				}
-				if config.Development || order == 200 {
-					util.Write("Ordens encerradas com sucesso ao finalizar a aplicação.", currentCoin+config.BaseCoin)
-				} else {
-					util.Write("Erro ao encerrar ordem. Finalize manulmente no site da Binance.", currentCoin+config.BaseCoin)
-				}
-			} else if side == "SELL" {
-				order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
-				if err != nil {
-					log.Println("Erro ao fechar a ordem: ", err)
-					return
-				}
-				if config.Development || order == 200 {
-					util.Write("Ordens encerradas com sucesso ao finalizar a aplicação.", currentCoin+config.BaseCoin)
-				} else {
-					util.Write("Erro ao encerrar ordem. Finalize manulmente no site da Binance.", currentCoin+config.BaseCoin)
-				}
-			}
-		} else {
-			fmt.Println(roiAcumulado)
-		}
-		err = criar_ordem.RemoverCoinDB(currentCoin)
-		if err != nil {
-			fmt.Println("Erro ao remover a moeda do banco de dados:", err)
-		}
-
-		os.Exit(0)
-	}()
 	criar_ordem.EnviarCoinDB(currentCoin)
-	for {
 
+	for {
 		if primeiraExec {
 			time.Sleep(2 * time.Second)
 			primeiraExec = false
+
+			allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+			if err != nil {
+				log.Println("Erro ao listar ordens: ", err)
+			}
+			for _, item := range allOrders {
+				entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
+				if entryPriceFloat > 0 {
+					util.Write("Ja possui ordem ativa.", currentCoin)
+					ordemAtiva = true
+				}
+			}
+			if ordemAtiva {
+				return
+			}
 		}
+
 		ultimosSaida = listar_ordens.ListarUltimosValores(currentCoin, 1)
 		currentPrice, err = strconv.ParseFloat(ultimosSaida[0].Price, 64)
 
@@ -166,49 +134,79 @@ func main() {
 				if ROI > roiMaximo {
 					roiMaximo = ROI
 				}
-				roiTempoReal = roiAcumulado + ROI
-				if roiTempoReal > 0 {
-					roiTempoRealStr = green(fmt.Sprintf("%.4f", roiTempoReal) + "%")
+				if ROI > 0 {
+					roiTempoRealStr = green(fmt.Sprintf("%.4f", ROI) + "%")
 				} else {
-					roiTempoRealStr = red(fmt.Sprintf("%.4f", roiTempoReal) + "%")
+					roiTempoRealStr = red(fmt.Sprintf("%.4f", ROI) + "%")
 				}
-				util.Write("Valor de entrada ("+green("LONG")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin+config.BaseCoin)
+				util.Write("Valor de entrada ("+green("LONG")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-				if config.Development {
-					if ROI >= config.TP3 {
-						util.Historico(currentCoin, side, started, "tp3", currentPrice, valueCompradoCoin)
-					} else if ROI >= config.TP2 {
-						util.Historico(currentCoin, side, started, "tp2", currentPrice, valueCompradoCoin)
-					} else if ROI >= config.TP1 {
-						util.Historico(currentCoin, side, started, "tp1", currentPrice, valueCompradoCoin)
-					}
-					if ROI <= config.SL3 {
-						util.Historico(currentCoin, side, started, "sl3", currentPrice, valueCompradoCoin)
-					} else if ROI <= config.SL2 {
-						util.Historico(currentCoin, side, started, "sl2", currentPrice, valueCompradoCoin)
-					} else if ROI <= config.SL1 {
-						util.Historico(currentCoin, side, started, "sl1", currentPrice, valueCompradoCoin)
-					}
+				if ROI >= config.TP3 {
+					util.Historico(currentCoin, side, started, "tp3", currentPrice, valueCompradoCoin)
+					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+					return
+				} else if ROI >= config.TP2 {
+					util.Historico(currentCoin, side, started, "tp2", currentPrice, valueCompradoCoin)
+				} else if ROI >= config.TP1 {
+					util.Historico(currentCoin, side, started, "tp1", currentPrice, valueCompradoCoin)
+				}
+				if ROI <= -config.SL3 {
+					util.Historico(currentCoin, side, started, "sl3", currentPrice, valueCompradoCoin)
+					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+					return
+				} else if ROI <= -config.SL2 {
+					util.Historico(currentCoin, side, started, "sl2", currentPrice, valueCompradoCoin)
+				} else if ROI <= -config.SL1 {
+					util.Historico(currentCoin, side, started, "sl1", currentPrice, valueCompradoCoin)
 				}
 
-				if ROI <= roiMaximo-(stop) { // Stop Loss
+				if ROI > 0 && now.Sub(start) >= time.Hour {
+					util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+					return
+
+				} else if ROI <= -(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
-					util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+					util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
 					if err != nil {
-						log.Println("Erro ao fechar a ordem: ", err)
+						log.Println("Erro ao fechar a ordem, encerre manualmente pela binance: ", err)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 						return
 					}
 					if config.Development || order == 200 {
 						ordemAtiva = false
-						os.Exit(1)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						return
 					} else {
-						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin)
+						ordemAtiva = true
+					}
+				} else if ROI >= takeprofit {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
+					if err != nil {
+						log.Println("Erro ao fechar a ordem, encerre manualmente pela binance: ", err)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						return
+					}
+					if config.Development || order == 200 {
+						ordemAtiva = false
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						return
+					} else {
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin)
 						ordemAtiva = true
 					}
 				}
@@ -217,49 +215,79 @@ func main() {
 				if ROI > roiMaximo {
 					roiMaximo = ROI
 				}
-				roiTempoReal := roiAcumulado + ROI
-				if roiTempoReal > 0 {
-					roiTempoRealStr = green(fmt.Sprintf("%.4f", roiTempoReal) + "%")
+				if ROI > 0 {
+					roiTempoRealStr = green(fmt.Sprintf("%.4f", ROI) + "%")
 				} else {
-					roiTempoRealStr = red(fmt.Sprintf("%.4f", roiTempoReal) + "%")
+					roiTempoRealStr = red(fmt.Sprintf("%.4f", ROI) + "%")
 				}
-				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin+config.BaseCoin)
+				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-				if config.Development {
-					if ROI >= config.TP3 {
-						util.Historico(currentCoin, side, started, "tp3", currentPrice, valueCompradoCoin)
-					} else if ROI >= config.TP2 {
-						util.Historico(currentCoin, side, started, "tp2", currentPrice, valueCompradoCoin)
-					} else if ROI >= config.TP1 {
-						util.Historico(currentCoin, side, started, "tp1", currentPrice, valueCompradoCoin)
-					}
-					if ROI <= config.SL3 {
-						util.Historico(currentCoin, side, started, "sl3", currentPrice, valueCompradoCoin)
-					} else if ROI <= config.SL2 {
-						util.Historico(currentCoin, side, started, "sl2", currentPrice, valueCompradoCoin)
-					} else if ROI <= config.SL1 {
-						util.Historico(currentCoin, side, started, "sl1", currentPrice, valueCompradoCoin)
-					}
+				if ROI >= config.TP3 {
+					util.Historico(currentCoin, side, started, "tp3", currentPrice, valueCompradoCoin)
+					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+					return
+				} else if ROI >= config.TP2 {
+					util.Historico(currentCoin, side, started, "tp2", currentPrice, valueCompradoCoin)
+				} else if ROI >= config.TP1 {
+					util.Historico(currentCoin, side, started, "tp1", currentPrice, valueCompradoCoin)
+				}
+				if ROI <= -config.SL3 {
+					util.Historico(currentCoin, side, started, "sl3", currentPrice, valueCompradoCoin)
+					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+					return
+				} else if ROI <= -config.SL2 {
+					util.Historico(currentCoin, side, started, "sl2", currentPrice, valueCompradoCoin)
+				} else if ROI <= -config.SL1 {
+					util.Historico(currentCoin, side, started, "sl1", currentPrice, valueCompradoCoin)
 				}
 
-				if ROI <= roiMaximo-(stop) {
+				if ROI > 0 && now.Sub(start) >= time.Hour {
+					util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+					return
+
+				} else if ROI <= -(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
-					util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin+config.BaseCoin)
+					util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 					order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
 					if err != nil {
-						log.Println("Erro ao fechar a ordem: ", err)
+						log.Println("Erro ao fechar a ordem, encerre manualmente pela Binance: ", err)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 						return
 					}
 					if config.Development || order == 200 {
 						ordemAtiva = false
-						os.Exit(1)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						return
 					} else {
-						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin+config.BaseCoin)
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin)
+						ordemAtiva = true
+					}
+				} else if ROI >= takeprofit {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
+					if err != nil {
+						log.Println("Erro ao fechar a ordem, encerre manualmente pela Binance: ", err)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						return
+					}
+					if config.Development || order == 200 {
+						ordemAtiva = false
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						return
+					} else {
+						util.Write("Erro ao encerrar ordem. Pode a qualquer momento digitar STOP para encerrar a ordem.", currentCoin)
 						ordemAtiva = true
 					}
 				}
@@ -272,11 +300,11 @@ func main() {
 func comprarBuy() int {
 	currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 	valueCompradoCoin = currentPrice
-	now = time.Now()
-	timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
+	start = time.Now()
+	timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
 	started = timeValue.Format("2006-01-02 15:04:05")
 	side = "BUY"
-	util.Write("Entrada em LONG: "+currentPriceStr, currentCoin+config.BaseCoin)
+	util.Write("Entrada em LONG: "+currentPriceStr, currentCoin)
 	order, err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue))
 	if err != nil {
 		log.Println("Erro ao criar conta: ", err)
@@ -298,7 +326,7 @@ func comprarBuy() int {
 		util.Historico(currentCoin, side, started, "", valueCompradoCoin, valueCompradoCoin)
 	} else {
 		side = ""
-		util.Write("A ordem de LONG não foi totalmente completada.", currentCoin+config.BaseCoin)
+		util.Write("A ordem de LONG não foi totalmente completada.", currentCoin)
 		ordemAtiva = false
 		os.Exit(1)
 
@@ -310,10 +338,10 @@ func comprarBuy() int {
 func comprarSell() int {
 	currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 	valueCompradoCoin = currentPrice
-	now = time.Now()
-	timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
+	start = time.Now()
+	timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
 	started = timeValue.Format("2006-01-02 15:04:05")
-	util.Write("Entrada em SHORT: "+currentPriceStr, currentCoin+config.BaseCoin)
+	util.Write("Entrada em SHORT: "+currentPriceStr, currentCoin)
 	side = "SELL"
 	order, err = criar_ordem.CriarOrdem(currentCoin, side, fmt.Sprint(currentValue))
 	if err != nil {
@@ -337,7 +365,7 @@ func comprarSell() int {
 		util.Historico(currentCoin, side, started, "", valueCompradoCoin, valueCompradoCoin)
 	} else {
 		side = ""
-		util.Write("A ordem de SHORT não foi totalmente completada. Irei voltar a buscar novas oportunidades. Pode a qualquer momento digitar SELL para entrar em SHORT.", currentCoin+config.BaseCoin)
+		util.Write("A ordem de SHORT não foi totalmente completada. Irei voltar a buscar novas oportunidades. Pode a qualquer momento digitar SELL para entrar em SHORT.", currentCoin)
 		ordemAtiva = false
 	}
 	return order
@@ -355,6 +383,7 @@ func setupCommands(app *cli.App) {
 				stop = c.Float64("stop")
 				side = c.String("side")
 				alavancagem = c.Float64("leverage")
+				takeprofit = c.Float64("takeprofit")
 
 				return nil
 			},
@@ -366,8 +395,8 @@ func setupCommands(app *cli.App) {
 				},
 				&cli.Float64Flag{
 					Name:    "value",
-					Value:   0,
-					Usage:   "Quantidade em moeda base (" + config.BaseCoin + ")",
+					Value:   10,
+					Usage:   "Quantidade em moeda base",
 					Aliases: []string{"v"},
 				},
 				&cli.Float64Flag{
@@ -386,6 +415,12 @@ func setupCommands(app *cli.App) {
 					Value:   1,
 					Usage:   "Definir a alavancagem.",
 					Aliases: []string{"l"},
+				},
+				&cli.Float64Flag{
+					Name:    "takeprofit",
+					Value:   1.5,
+					Usage:   "Definir o Take Profit",
+					Aliases: []string{"t"},
 				},
 			},
 		},
