@@ -98,6 +98,11 @@ func main() {
 				}
 			}
 			if ordemAtiva {
+				err = criar_ordem.RemoverCoinDB(currentCoin)
+				if err != nil {
+					primeiraExec = true
+					continue
+				}
 				return
 			}
 		}
@@ -129,7 +134,7 @@ func main() {
 			now = time.Now()
 			timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
 			formattedTime := timeValue.Format("2006-01-02 15:04:05")
-			if side == "BUY" {
+			if side == "BUY" && primeiraExec {
 				ROI = (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				if ROI > roiMaximo {
 					roiMaximo = ROI
@@ -194,7 +199,7 @@ func main() {
 					}
 
 				}
-			} else if side == "SELL" {
+			} else if side == "SELL" && primeiraExec {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				if ROI > roiMaximo {
 					roiMaximo = ROI
