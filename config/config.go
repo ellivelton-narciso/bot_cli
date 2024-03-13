@@ -12,16 +12,10 @@ import (
 )
 
 type UserStruct struct {
-	ApiKey      string  `json:"apiKey"`
-	SecretKey   string  `json:"secretKey"`
-	BaseURL     string  `json:"baseURL"`
-	Development bool    `json:"development"`
-	TP1         float64 `json:tp1`
-	TP2         float64 `json:tp2`
-	TP3         float64 `json:tp3`
-	SL1         float64 `json:sl1`
-	SL2         float64 `json:sl2`
-	SL3         float64 `json:sl3`
+	ApiKey      string `json:"apiKey"`
+	SecretKey   string `json:"secretKey"`
+	BaseURL     string `json:"baseURL"`
+	Development bool   `json:"development"`
 }
 
 var (
@@ -65,12 +59,6 @@ func ReadFile() {
 	Pass = os.Getenv("PASS")
 	Port = os.Getenv("PORT")
 	DBname = os.Getenv("DBNAME")
-	TP1 = UserConfig.TP1
-	TP2 = UserConfig.TP2
-	TP3 = UserConfig.TP3
-	SL1 = UserConfig.SL1
-	SL2 = UserConfig.SL2
-	SL3 = UserConfig.SL3
 
 }
 
