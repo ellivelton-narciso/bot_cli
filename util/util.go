@@ -169,14 +169,14 @@ func DefinirMargim(currentCoin, margim string) {
 
 }
 
-func Historico(coin, side, started, parametros string, currValue, entryPrice float64) {
+func Historico(coin, side, started, parametros string, currValue, entryPrice, roi float64) {
 	config.ReadFile()
 	basecoin := coin
 	count := contagemRows(basecoin, started)
 
 	if count == 1 {
-		query := "UPDATE hist_transactions SET " + parametros + " = ?, " + parametros + "_time = NOW() WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
-		result := database.DB.Exec(query, currValue, basecoin, started, side)
+		query := "UPDATE hist_transactions SET " + parametros + " = ?, " + parametros + "_time = NOW(), " + parametros + "_roi = ? WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
+		result := database.DB.Exec(query, currValue, roi, basecoin, started, side)
 		if result.Error != nil {
 			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, basecoin)
 			return
