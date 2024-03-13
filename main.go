@@ -179,14 +179,20 @@ func main() {
 					util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 					encerrarOrdem()
 				} else if ROI >= takeprofit {
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					ultimoMinuto := listar_ordens.ListarValorUltimoMinuto(currentCoin)
+					valorUltimoMinuto, _ := strconv.ParseFloat(ultimoMinuto[0].Price, 64)
+
+					if currentPrice < valorUltimoMinuto {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						encerrarOrdem()
 					}
-					util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-					encerrarOrdem()
+
 				}
 			} else if side == "SELL" {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
@@ -237,14 +243,19 @@ func main() {
 					util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 					encerrarOrdem()
 				} else if ROI >= takeprofit {
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					ultimoMinuto := listar_ordens.ListarValorUltimoMinuto(currentCoin)
+					valorUltimoMinuto, _ := strconv.ParseFloat(ultimoMinuto[0].Price, 64)
+
+					if currentPrice > valorUltimoMinuto {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						encerrarOrdem()
 					}
-					util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-					encerrarOrdem()
 				}
 			}
 		}
