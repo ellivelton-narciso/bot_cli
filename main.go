@@ -84,11 +84,11 @@ func main() {
 	for {
 		if primeiraExec {
 			time.Sleep(2 * time.Second)
-			primeiraExec = false
-
 			allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 			if err != nil {
+				primeiraExec = true
 				log.Println("Erro ao listar ordens: ", err)
+				continue
 			}
 			for _, item := range allOrders {
 				entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
@@ -105,13 +105,18 @@ func main() {
 				}
 				return
 			}
+			primeiraExec = false
 		}
 
 		ultimosSaida = listar_ordens.ListarUltimosValores(currentCoin, 1)
+		if len(ultimosSaida) == 0 {
+			continue
+		}
 		currentPrice, err = strconv.ParseFloat(ultimosSaida[0].Price, 64)
 
 		if err != nil {
-			log.Println(err)
+			util.WriteError("Erro no array currentPrice: ", err, currentCoin)
+			continue
 		}
 		currentPriceStr = fmt.Sprint(currentPrice)
 		if !ordemAtiva { // Não tem ordem ainda
