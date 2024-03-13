@@ -75,3 +75,29 @@ func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
 
 	return priceResp
 }
+
+func ListarValorUltimoMinuto(coin string) []models.PriceResponse {
+	config.ReadFile()
+
+	var historicos []models.Historico
+	database.DB.Where("created_at >= NOW() - INTERVAL - 1 MINUTE").Order("created_at").Limit(1).Find(&historicos)
+
+	var priceRespAll []models.PriceResponse
+	for _, historico := range historicos {
+		var data []models.PriceResponse
+		if err := json.Unmarshal([]byte(historico.Value), &data); err != nil {
+			fmt.Println("\n Erro ao decodificar JSON - ", err)
+			continue
+		}
+		priceRespAll = append(priceRespAll, data...)
+	}
+
+	var priceResp []models.PriceResponse
+	for _, item := range priceRespAll {
+		if item.Symbol == coin {
+			priceResp = append(priceResp, item)
+		}
+	}
+
+	return priceResp
+}
