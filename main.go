@@ -87,7 +87,7 @@ func main() {
 			allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 			if err != nil {
 				primeiraExec = true
-				log.Println("Erro ao listar ordens: ", err)
+				util.WriteError("Erro ao listar ordens: ", err, currentCoin)
 				continue
 			}
 			for _, item := range allOrders {
@@ -101,6 +101,7 @@ func main() {
 				err = criar_ordem.RemoverCoinDB(currentCoin)
 				if err != nil {
 					primeiraExec = true
+					util.Write("Erro ao remover coin da database", currentCoin)
 					continue
 				}
 				return
@@ -110,6 +111,7 @@ func main() {
 
 		ultimosSaida = listar_ordens.ListarUltimosValores(currentCoin, 1)
 		if len(ultimosSaida) == 0 {
+			util.Write("Erro, array vazio. "+fmt.Sprint(len(ultimosSaida))+"", currentCoin)
 			continue
 		}
 		currentPrice, err = strconv.ParseFloat(ultimosSaida[0].Price, 64)
@@ -139,7 +141,7 @@ func main() {
 			now = time.Now()
 			timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
 			formattedTime := timeValue.Format("2006-01-02 15:04:05")
-			if side == "BUY" && primeiraExec {
+			if side == "BUY" && !primeiraExec {
 				ROI = (((currentPrice - valueCompradoCoin) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				if ROI > roiMaximo {
 					roiMaximo = ROI
@@ -173,8 +175,13 @@ func main() {
 					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 
 					encerrarOrdem()
+					return
 				} else if ROI >= takeprofit {
 					ultimoMinuto := listar_ordens.ListarValorUltimoMinuto(currentCoin)
+					if len(ultimoMinuto) == 0 {
+						util.Write("Tamanho de variável ultimo minuto é 0", currentCoin)
+						continue
+					}
 					valorUltimoMinuto, _ := strconv.ParseFloat(ultimoMinuto[0].Price, 64)
 					util.Historico(currentCoin, side, started, "tp1", currentPrice, valueCompradoCoin, ROI)
 
@@ -187,14 +194,15 @@ func main() {
 						}
 						util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 
-						util.Historico(currentCoin, side, started, "tp3", currentPrice, valueCompradoCoin, ROI)
+						util.Historico(currentCoin, side, started, "tp2", currentPrice, valueCompradoCoin, ROI)
 						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 
 						encerrarOrdem()
+						return
 					}
 
 				}
-			} else if side == "SELL" && primeiraExec {
+			} else if side == "SELL" && !primeiraExec {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				if ROI > roiMaximo {
 					roiMaximo = ROI
@@ -225,15 +233,20 @@ func main() {
 					}
 					util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 
-					util.Historico(currentCoin, side, started, "sl2", currentPrice, valueCompradoCoin, ROI)
+					util.Historico(currentCoin, side, started, "sl1", currentPrice, valueCompradoCoin, ROI)
 					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 
 					encerrarOrdem()
+					return
 				} else if ROI >= takeprofit {
 					ultimoMinuto := listar_ordens.ListarValorUltimoMinuto(currentCoin)
+					if len(ultimoMinuto) == 0 {
+						util.Write("Tamanho de variável ultimo minuto é 0", currentCoin)
+						continue
+					}
 					valorUltimoMinuto, _ := strconv.ParseFloat(ultimoMinuto[0].Price, 64)
 
-					util.Historico(currentCoin, side, started, "sl1", currentPrice, valueCompradoCoin, ROI)
+					util.Historico(currentCoin, side, started, "tp1", currentPrice, valueCompradoCoin, ROI)
 					util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 
 					if currentPrice > valorUltimoMinuto {
@@ -245,10 +258,11 @@ func main() {
 						}
 						util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 
-						util.Historico(currentCoin, side, started, "sl2", currentPrice, valueCompradoCoin, ROI)
+						util.Historico(currentCoin, side, started, "tp2", currentPrice, valueCompradoCoin, ROI)
 						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 
 						encerrarOrdem()
+						return
 					}
 				}
 			}
