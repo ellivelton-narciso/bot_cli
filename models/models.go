@@ -78,10 +78,23 @@ type BotHistory struct {
 	TradingName   string    `gorm:"column:trading_name" json:"trading_name"`
 }
 
+type ResponseQuery struct {
+	HistDate  time.Time `gorm:"hist_date" json:"hist_date"`
+	Coin      string    `gorm:"coin" json:"coin"`
+	Tend      string    `gorm:"tend" json:"tend"`
+	CurrValue float64   `gorm:"curr_value" json:"curr_value"`
+	TP        float64   `gorm:"SP" json:"SP"`
+	SL        float64   `gorm:"SL" json:"SL"`
+}
+
 func (Historico) TableName() string {
 	return "historico"
 }
 
 func (BotHistory) TableName() string {
 	return "bot_history"
+}
+
+func (ResponseQuery) TableName() string {
+	return "v_selected_orders"
 }
