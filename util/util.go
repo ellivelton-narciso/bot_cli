@@ -169,7 +169,7 @@ func DefinirMargim(currentCoin, margim string) {
 
 }
 
-func Historico(coin, side, started, parametros string, currValue, entryPrice, roi float64) {
+func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64) {
 	config.ReadFile()
 	basecoin := coin
 	count := contagemRows(basecoin, started)
@@ -182,8 +182,8 @@ func Historico(coin, side, started, parametros string, currValue, entryPrice, ro
 			return
 		}
 	} else {
-		query := "INSERT INTO hist_transactions (coin, side, entryPrice, started_at) VALUES (?, ?, ?, ?)"
-		result := database.DB.Exec(query, basecoin, side, entryPrice, started)
+		query := "INSERT INTO hist_transactions (coin, side, entryPrice, started_at, price_tg, date_tg) VALUES (?, ?, ?, ?, ?, ?)"
+		result := database.DB.Exec(query, basecoin, side, entryPrice, started, currValueTelegram, currDateTelegram)
 		if result.Error != nil {
 			WriteError("Erro ao inserir dados iniciais da moeda na tabela hist_transactions: ", result.Error, basecoin)
 			return
@@ -214,4 +214,12 @@ func contagemRows(basecoin, started string) int {
 		return 0
 	}
 	return count
+}
+func BuscarValoresTelegram(coin string) []models.ResponseQuery {
+	var bots []models.ResponseQuery
+
+	database.DB.Where("coin = ?", coin).First(&bots)
+
+	return bots
+
 }
