@@ -47,7 +47,7 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 
 	precision := 0
 
-	if coin == "BTC" || coin == "ETH" {
+	if coin == "BTCUSDT" || coin == "ETHUSDT" {
 		precision = 3
 	}
 

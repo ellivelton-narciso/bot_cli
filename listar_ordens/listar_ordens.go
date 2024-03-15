@@ -80,7 +80,7 @@ func ListarValorUltimoMinuto(coin string) []models.PriceResponse {
 	config.ReadFile()
 
 	var historicos []models.Historico
-	database.DB.Where("created_at >= NOW() - INTERVAL 1 MINUTE").Order("created_at").Limit(1).Find(&historicos)
+	database.DB.Where("created_at >= NOW() - INTERVAL 1 MINUTE").Order("created_at").Find(&historicos)
 
 	var priceRespAll []models.PriceResponse
 	for _, historico := range historicos {
