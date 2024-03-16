@@ -125,6 +125,9 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					for _, item := range allOrders {
 						if item.PositionSide == "BUY" {
 							valueCompradoCoin, err = strconv.ParseFloat(item.EntryPrice, 64)
+							started_timestamp := item.UpdateTime
+							timeStarted := time.Unix(0, started_timestamp*int64(time.Millisecond))
+							started = timeStarted.Format("2006-01-02 15:04:05")
 							if err != nil {
 								log.Println("Erro ao buscar valor de entrada: ", err)
 							}
@@ -156,6 +159,9 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					for _, item := range allOrders {
 						if item.PositionSide == "SELL" {
 							valueCompradoCoin, err = strconv.ParseFloat(item.EntryPrice, 64)
+							started_timestamp := item.UpdateTime
+							timeStarted := time.Unix(0, started_timestamp*int64(time.Millisecond))
+							started = timeStarted.Format("2006-01-02 15:04:05")
 							if err != nil {
 								log.Println("Erro ao buscar valor de entrada: ", err)
 							}
