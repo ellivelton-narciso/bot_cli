@@ -41,7 +41,7 @@ func main() {
 				}
 			}(bot)
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 
 }
