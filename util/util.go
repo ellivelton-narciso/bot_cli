@@ -50,10 +50,13 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 	if coin == "BTCUSDT" || coin == "ETHUSDT" {
 		precision = 3
 	}
+	if priceResp.Price == "" {
+		fmt.Println("Preço é vazio, provavelmente devido a algum erro na requisição, StatusCode: ", response.StatusCode, " Coin: ", coin)
+	}
 
 	price, err := strconv.ParseFloat(priceResp.Price, 64)
 	if err != nil {
-		fmt.Println("Erro ao converter preço para float64:", err)
+		fmt.Println("Erro ao converter preço para float64: ", err)
 	}
 
 	q := value / price
