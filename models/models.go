@@ -87,6 +87,12 @@ type ResponseQuery struct {
 	SL        float64   `gorm:"SL" json:"SL"`
 }
 
+type HistoricoAll struct {
+	HistDate     time.Time `gorm:"column:hist_date" json:"hist_date"`
+	TradingName  string    `gorm:"column:trading_name" json:"trading_name"`
+	CurrentValue string    `gorm:"column:curr_value" json:"curr_value"`
+}
+
 func (Historico) TableName() string {
 	return "historico"
 }
@@ -98,3 +104,5 @@ func (BotHistory) TableName() string {
 func (ResponseQuery) TableName() string {
 	return "v_selected_orders"
 }
+
+func (HistoricoAll) TableName() string { return "hist_trading_values" }
