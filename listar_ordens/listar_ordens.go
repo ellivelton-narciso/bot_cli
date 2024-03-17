@@ -5,6 +5,7 @@ import (
 	"binance_robot/database"
 	"binance_robot/models"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -76,28 +77,22 @@ func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
 	return priceResp
 }
 
-func ListarValorUltimoMinuto(coin string) []models.PriceResponse {
+func ListarValorAnterior(coin string) (float64, error) {
 	config.ReadFile()
 
-	var historicos []models.Historico
-	database.DB.Where("created_at >= NOW() - INTERVAL 1 MINUTE").Order("created_at").Find(&historicos)
+	var historicos []models.HistoricoAll
+	query := `SELECT * FROM hist_trading_values WHERE trading_name = ? AND hist_date >= NOW() - INTERVAL 5 MINUTE ORDER BY hist_date LIMIT 1`
 
-	var priceRespAll []models.PriceResponse
-	for _, historico := range historicos {
-		var data []models.PriceResponse
-		if err := json.Unmarshal([]byte(historico.Value), &data); err != nil {
-			fmt.Println("\n Erro ao decodificar JSON - ", err)
-			continue
-		}
-		priceRespAll = append(priceRespAll, data...)
+	err := database.DB.Raw(query, coin).Scan(&historicos).Error
+	if err != nil {
+		return 0.0, err
 	}
-
-	var priceResp []models.PriceResponse
-	for _, item := range priceRespAll {
-		if item.Symbol == coin {
-			priceResp = append(priceResp, item)
-		}
+	if len(historicos) == 0 {
+		return 0.0, errors.New("hist_trading_values retornou um array vazio")
 	}
-
-	return priceResp
+	priceFloat, err := strconv.ParseFloat(historicos[0].CurrentValue, 64)
+	if err != nil {
+		return 0.0, err
+	}
+	return priceFloat, nil
 }
