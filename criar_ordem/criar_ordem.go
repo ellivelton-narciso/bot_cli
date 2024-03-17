@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin string, side string, quantity string) (int, error) {
+func CriarOrdem(coin, side, quantity string) (int, error) {
 
 	config.ReadFile()
 
@@ -77,4 +77,73 @@ func RemoverCoinDB(coin string) error {
 		return err
 	}
 	return nil
+}
+
+func CriarSLSeguro(coin, side, stop string) (int, string, error) {
+	config.ReadFile()
+
+	now := time.Now()
+	timestamp := now.UnixMilli()
+	apiParamsOrdem := "symbol=" + coin + "&type=STOP_MARKET&side=" + side + "&closePosition=true&stopPrice=" + stop + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+
+	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
+
+	req, err := http.NewRequest("POST", urlOrdem, nil)
+	if err != nil {
+		return 500, "", err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 500, "", err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return 500, string(body), err
+	}
+
+	if res.StatusCode != 200 {
+		return res.StatusCode, string(body), nil
+	}
+	//fmt.Println(string(body))
+	//fmt.Println(res.StatusCode)
+
+	var response models.ResponseOrderStruct
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return 500, string(body), err
+	}
+	return res.StatusCode, string(body), nil
+}
+
+func CancelarSLSeguro(coin string) (int, error) {
+	now := time.Now()
+	timestamp := now.UnixMilli()
+	apiParamsOrdem := "symbol=" + coin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+
+	urlOrdem := config.BaseURL + "fapi/v1/allOpenOrders?" + apiParamsOrdem + "&signature=" + signatureOrdem
+	req, err := http.NewRequest("DELETE", urlOrdem, nil)
+	if err != nil {
+		return 500, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 500, err
+	}
+
+	if res.StatusCode != 200 {
+		return res.StatusCode, nil
+	}
+	return res.StatusCode, nil
 }

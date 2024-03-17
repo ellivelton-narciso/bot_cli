@@ -226,3 +226,13 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 	return bots
 
 }
+
+func GetPrecision(str string) int {
+	parts := strings.Split(str, ".")
+
+	if len(parts) == 1 {
+		return 0
+	}
+
+	return len(parts[1])
+}
