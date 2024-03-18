@@ -6,7 +6,6 @@ import (
 	"binance_robot/models"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -51,30 +50,20 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 
 }
 
-func ListarUltimosValores(coin string, count int64) []models.PriceResponse {
+func ListarUltimosValores(coin string) ([]models.HistoricoAll, error) {
 	config.ReadFile()
 
-	var historicos []models.Historico
-	database.DB.Order("created_at DESC").Limit(int(count)).Find(&historicos)
+	var historicos []models.HistoricoAll
+	query := `SELECT * FROM hist_trading_values WHERE trading_name = ? ORDER BY hist_date desc  LIMIT 1`
 
-	var priceRespAll []models.PriceResponse
-	for _, historico := range historicos {
-		var data []models.PriceResponse
-		if err := json.Unmarshal([]byte(historico.Value), &data); err != nil {
-			fmt.Println("\n Erro ao decodificar JSON - ", err)
-			continue
-		}
-		priceRespAll = append(priceRespAll, data...)
+	err := database.DB.Raw(query, coin).Scan(&historicos).Error
+	if err != nil {
+		return nil, err
 	}
-
-	var priceResp []models.PriceResponse
-	for _, item := range priceRespAll {
-		if item.Symbol == coin {
-			priceResp = append(priceResp, item)
-		}
+	if len(historicos) == 0 {
+		return nil, errors.New("hist_trading_values retornou um array vazio")
 	}
-
-	return priceResp
+	return historicos, nil
 }
 
 func ListarValorAnterior(coin string) (float64, error) {
