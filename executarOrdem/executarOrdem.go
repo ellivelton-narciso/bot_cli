@@ -30,7 +30,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		primeiraExec        bool
 		roiAcumulado        float64
 		allOrders           []models.CryptoPosition
-		ultimosSaida        []models.PriceResponse
+		ultimosSaida        []models.HistoricoAll
 		now                 time.Time
 		start               time.Time
 		ROI                 float64
@@ -46,6 +46,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		currentDateTelegram string
 		resposta            string
 		precision           int
+		forTime             time.Duration
 	)
 
 	red = color.New(color.FgHiRed).SprintFunc()
@@ -55,7 +56,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	primeiraExec = true
 	valueCompradoCoin = 0.0
 	roiAcumulado = 0.0
-
+	forTime = 900 * time.Millisecond
 	roiMaximo = 0
 
 	side = strings.ToUpper(side)
@@ -130,13 +131,14 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 			primeiraExec = false
 		}
 
-		ultimosSaida = listar_ordens.ListarUltimosValores(currentCoin, 1)
-		if len(ultimosSaida) == 0 {
-			util.Write("Erro, array vazio. "+fmt.Sprint(len(ultimosSaida))+"", currentCoin)
-			continue
-		}
-		currentPrice, err = strconv.ParseFloat(ultimosSaida[0].Price, 64)
+		ultimosSaida, err = listar_ordens.ListarUltimosValores(currentCoin)
 
+		if err != nil {
+			log.Println("Erro ao buscar ultimo valor de " + currentCoin)
+			util.WriteError("Erro ao buscar ultimo valor: ", err, currentCoin)
+		}
+
+		currentPrice, err = strconv.ParseFloat(ultimosSaida[0].CurrentValue, 64)
 		if err != nil {
 			util.WriteError("Erro no array currentPrice: ", err, currentCoin)
 			continue
@@ -178,6 +180,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 					util.Historico(currentCoin, "BUY", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
+					forTime = 15 * time.Second
 					q := valueCompradoCoin * (1 - 0.025*1.2)
 					stopSeguro := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
 					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "SELL", fmt.Sprint(stopSeguro))
@@ -191,6 +194,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						continue
 					}
 					util.Write("Stop Loss Seguro foi criado.", currentCoin)
+
 				} else {
 					util.Write("A ordem de LONG não foi totalmente completada.", currentCoin)
 					ordemAtiva = false
@@ -220,8 +224,8 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 								if err != nil {
 									log.Println("Erro ao buscar valor de entrada: ", err)
 								}
-								started_timestamp := item.UpdateTime
-								timeStarted := time.Unix(0, started_timestamp*int64(time.Millisecond))
+								startedTimestamp := item.UpdateTime
+								timeStarted := time.Unix(0, startedTimestamp*int64(time.Millisecond))
 								started = timeStarted.Format("2006-01-02 15:04:05")
 
 								precision = util.GetPrecision(item.EntryPrice)
@@ -229,6 +233,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 					util.Historico(currentCoin, "SELL", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
+					forTime = 15 * time.Second
 					stopSeguro := valueCompradoCoin * (1 + 0.025*1.2)
 					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, side, fmt.Sprint(stopSeguro))
 					if err != nil {
@@ -241,6 +246,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						continue
 					}
 					util.Write("Stop Loss Seguro foi criado.", currentCoin)
+
 				} else {
 					util.Write("A ordem de SHORT não foi totalmente completada. Irei voltar a buscar novas oportunidades. Pode a qualquer momento digitar SELL para entrar em SHORT.", currentCoin)
 					ordemAtiva = false
@@ -420,7 +426,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				}
 			}
 		}
-		time.Sleep(900 * time.Millisecond)
+		time.Sleep(forTime)
 	}
 }
 
