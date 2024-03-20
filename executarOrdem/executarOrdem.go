@@ -59,7 +59,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	roiAcumulado = 0.0
 	forTime = 900 * time.Millisecond
 	roiMaximo = 0
-	stop = stop + (fee * 2)
 
 	side = strings.ToUpper(side)
 	if side == "LONG" {
@@ -74,6 +73,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	}
 	currValueTelegram = tg[0].CurrValue
 	currentDateTelegram = tg[0].HistDate.Format("2006-01-02 15:04:05")
+	stop = (takeprofit * 2) + (fee * 2)
 
 	util.DefinirAlavancagem(currentCoin, alavancagem)
 	util.DefinirMargim(currentCoin, "ISOLATED")
@@ -151,6 +151,9 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		if !ordemAtiva { // Não tem ordem ainda
 
 			if side == "BUY" {
+				start = time.Now()
+				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
+				started = timeValue.Format("2006-01-02 15:04:05")
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
 					continue
@@ -161,16 +164,51 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					err = criar_ordem.RemoverCoinDB(currentCoin)
 					if err != nil {
 						log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+						time.Sleep(2 * time.Second)
 						return
 					}
+					util.Write("LONG - Valor do Telegram é menor que o preço atual de mercado +  0.2%, Valor Telegram: "+fmt.Sprintf("%.4f", currValueTelegram)+" Valor atual + 0.2%: "+fmt.Sprintf("%.4f", priceBuy*1.002), currentCoin)
+					time.Sleep(2 * time.Second)
 					return
 				}
-				start = time.Now()
-				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
-				started = timeValue.Format("2006-01-02 15:04:05")
+
 				order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue))
 				if err != nil {
 					log.Println("Erro ao dar entrada m LONG: ", err)
+					if !config.Development {
+						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao listar ordens: ", err, currentCoin)
+							return
+						}
+						for _, item := range allOrders {
+							entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
+							if entryPriceFloat > 0 {
+								util.Write("Ja possui ordem ativa.", currentCoin)
+								ordemAtiva = true
+							}
+						}
+						if !ordemAtiva {
+							err = criar_ordem.RemoverCoinDB(currentCoin)
+							if err != nil {
+								log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+								time.Sleep(2 * time.Second)
+								return
+							}
+							time.Sleep(2 * time.Second)
+							return
+						}
+						continue
+					} else {
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+							time.Sleep(2 * time.Second)
+							return
+						}
+						time.Sleep(2 * time.Second)
+						return
+					}
 				}
 				if config.Development || order == 200 {
 					util.Write("Entrada em LONG: "+currentPriceStr, currentCoin)
@@ -216,6 +254,9 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 				}
 			} else if side == "SELL" {
+				start = time.Now()
+				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
+				started = timeValue.Format("2006-01-02 15:04:05")
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
 					continue
@@ -226,16 +267,50 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					err = criar_ordem.RemoverCoinDB(currentCoin)
 					if err != nil {
 						log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+						time.Sleep(2 * time.Second)
 						return
 					}
+					util.Write("SHORT - Valor do Telegram é maior que o preço atual de mercado +  0.2%, Valor Telegram: "+fmt.Sprintf("%.4f", currValueTelegram)+" Valor atual + 0.2%: "+fmt.Sprintf("%.4f", priceBuy*1.002), currentCoin)
+					time.Sleep(2 * time.Second)
 					return
 				}
-				start = time.Now()
-				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
-				started = timeValue.Format("2006-01-02 15:04:05")
 				order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue))
 				if err != nil {
-					log.Println("Erro ao criar conta: ", err)
+					log.Println("Erro ao dar entrada em SHORT: ", err)
+					if !config.Development {
+						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao listar ordens: ", err, currentCoin)
+							return
+						}
+						for _, item := range allOrders {
+							entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
+							if entryPriceFloat > 0 {
+								util.Write("Ja possui ordem ativa.", currentCoin)
+								ordemAtiva = true
+							}
+						}
+						if !ordemAtiva {
+							err = criar_ordem.RemoverCoinDB(currentCoin)
+							if err != nil {
+								log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+								time.Sleep(2 * time.Second)
+								return
+							}
+							time.Sleep(2 * time.Second)
+							return
+						}
+						continue
+					} else {
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+							time.Sleep(2 * time.Second)
+							return
+						}
+						time.Sleep(2 * time.Second)
+						return
+					}
 				}
 				if config.Development || order == 200 {
 					util.Write("Entrada em SHORT: "+currentPriceStr, currentCoin)
@@ -295,47 +370,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				}
 				util.Write("Valor de entrada ("+green("LONG")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-				if ROI > 0 && now.Sub(start) >= time.Hour {
-					order = encerrarOrdem(currentCoin, side, currentValue)
-					if config.Development || order == 200 {
-						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
-						err = criar_ordem.RemoverCoinDB(currentCoin)
-						if err != nil {
-							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
-							return
-						}
-						return
-					} else {
-						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
-						continue
-					}
-
-				}
-				if ROI <= roiMaximo-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					}
-					order = encerrarOrdem(currentCoin, side, currentValue)
-					if config.Development || order == 200 {
-						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
-						err = criar_ordem.RemoverCoinDB(currentCoin)
-						if err != nil {
-							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
-							return
-						}
-						return
-					} else {
-						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
-						continue
-					}
-				}
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
 					if err != nil {
@@ -369,6 +403,48 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					}
 
 				}
+				if ROI <= roiMaximo-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					order = encerrarOrdem(currentCoin, side, currentValue)
+					if config.Development || order == 200 {
+						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+							return
+						}
+						return
+					} else {
+						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+						continue
+					}
+				}
+				if ROI > 0 && now.Sub(start) >= time.Hour {
+					order = encerrarOrdem(currentCoin, side, currentValue)
+					if config.Development || order == 200 {
+						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+							return
+						}
+						return
+					} else {
+						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+						continue
+					}
+
+				}
+
 			} else if side == "SELL" && !primeiraExec {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				if ROI > roiMaximo {
@@ -381,48 +457,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				}
 				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-				if ROI > 0 && now.Sub(start) >= time.Hour {
-					order = encerrarOrdem(currentCoin, side, currentValue)
-					if config.Development || order == 200 {
-						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
-						util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						err = criar_ordem.RemoverCoinDB(currentCoin)
-						if err != nil {
-							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
-							return
-						}
-						return
-					} else {
-						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
-						continue
-					}
-
-				}
-				if ROI <= roiMaximo-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
-					roiAcumulado = roiAcumulado + ROI
-					if roiAcumulado > 0 {
-						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					} else {
-						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
-					}
-					order = encerrarOrdem(currentCoin, side, currentValue)
-					if config.Development || order == 200 {
-						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
-
-						err = criar_ordem.RemoverCoinDB(currentCoin)
-						if err != nil {
-							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
-							return
-						}
-						return
-					} else {
-						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
-						continue
-					}
-				}
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
 					if err != nil {
@@ -454,6 +488,48 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 							continue
 						}
 					}
+				}
+				if ROI <= roiMaximo-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					order = encerrarOrdem(currentCoin, side, currentValue)
+					if config.Development || order == 200 {
+						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+							return
+						}
+						return
+					} else {
+						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+						continue
+					}
+				}
+				if ROI > 0 && now.Sub(start) >= time.Hour {
+					order = encerrarOrdem(currentCoin, side, currentValue)
+					if config.Development || order == 200 {
+						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+							return
+						}
+						return
+					} else {
+						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+						continue
+					}
+
 				}
 			}
 		}
