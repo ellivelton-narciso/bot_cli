@@ -49,7 +49,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		forTime             time.Duration
 		at1                 bool
 		at2                 bool
-		at3                 bool
 		priceBuy            float64
 	)
 
@@ -64,7 +63,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	roiMaximo = 0
 	at1 = false
 	at2 = false
-	at3 = false
 	stop = stop + (fee * 2)
 
 	side = strings.ToUpper(side)
@@ -296,7 +294,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						continue
 					}
 
-				} else if ROI <= -(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+				} else if ROI <= roiMaximo-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -330,8 +328,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						if !at1 {
 							at1 = true
 						} else if at1 && !at2 {
-							at2 = true
-						} else if at1 && at2 && !at3 {
 							roiAcumulado = roiAcumulado + ROI
 							if roiAcumulado > 0 {
 								roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -356,12 +352,10 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						} else {
 							at1 = false
 							at2 = false
-							at3 = false
 						}
 					} else {
 						at1 = false
 						at2 = false
-						at3 = false
 					}
 
 				}
@@ -394,7 +388,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						continue
 					}
 
-				} else if ROI <= -(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+				} else if ROI <= roiMaximo-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -428,8 +422,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						if !at1 {
 							at1 = true
 						} else if at1 && !at2 {
-							at2 = true
-						} else if at1 && at2 && !at3 {
 							roiAcumulado = roiAcumulado + ROI
 							if roiAcumulado > 0 {
 								roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -455,12 +447,10 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						} else {
 							at1 = false
 							at2 = false
-							at3 = false
 						}
 					} else {
 						at1 = false
 						at2 = false
-						at3 = false
 					}
 				}
 			}
