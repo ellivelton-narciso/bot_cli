@@ -50,6 +50,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		at1                 bool
 		at2                 bool
 		at3                 bool
+		valorCompra         float64
 	)
 
 	red = color.New(color.FgHiRed).SprintFunc()
@@ -117,6 +118,22 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 	for {
 		if primeiraExec {
+			ultimosBuyArr, ultimosBuy := listar_ordens.ListarUltimosValoresBuy(currentCoin, 1)
+			if ultimosBuy == 0 && ultimosBuyArr == nil {
+				msgErrBuy := "Erro ao buscar valor pra compra, " + currentCoin + " Buscando preço novamente"
+				fmt.Println(msgErrBuy)
+				util.Write(msgErrBuy, currentCoin)
+				continue
+			}
+			if ultimosBuy == 0 {
+				valorCompra, err = strconv.ParseFloat(ultimosBuyArr[0].Price, 64)
+				if err != nil {
+					log.Println("Erro ao converter valor em float.")
+					continue
+				}
+			} else {
+				valorCompra = ultimosBuy
+			}
 			allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 			if err != nil {
 				primeiraExec = true
@@ -139,8 +156,11 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		ultimosSaida, err = listar_ordens.ListarUltimosValores(currentCoin)
 
 		if err != nil {
-			log.Println("Erro ao buscar ultimo valor de " + currentCoin)
-			util.WriteError("Erro ao buscar ultimo valor: ", err, currentCoin)
+			now = time.Now()
+			timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
+			nowFormatted := timeValue.Format("2006-01-02 15:04:05")
+			log.Println(nowFormatted + " - Erro ao buscar ultimo valor de " + currentCoin)
+			util.WriteError(nowFormatted+" - Erro ao buscar ultimo valor: ", err, currentCoin)
 		}
 
 		currentPrice, err = strconv.ParseFloat(ultimosSaida[0].CurrentValue, 64)
@@ -154,7 +174,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 			if side == "BUY" {
 				currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
-				valueCompradoCoin = currentPrice
+				valueCompradoCoin = valorCompra
 				start = time.Now()
 				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
 				started = timeValue.Format("2006-01-02 15:04:05")
@@ -163,7 +183,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					log.Println("Erro ao dar entrada m LONG: ", err)
 				}
 				if config.Development || order == 200 {
-					util.Write("Entrada em LONG: "+currentPriceStr, currentCoin)
+					util.Write("Entrada em LONG: "+fmt.Sprint(valorCompra), currentCoin)
 					ordemAtiva = true
 					allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 					if err != nil {
@@ -207,7 +227,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				}
 			} else if side == "SELL" {
 				currentValue = util.ConvertBaseCoin(currentCoin, value*alavancagem)
-				valueCompradoCoin = currentPrice
+				valueCompradoCoin = valorCompra
 				start = time.Now()
 				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
 				started = timeValue.Format("2006-01-02 15:04:05")
@@ -216,7 +236,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					log.Println("Erro ao criar conta: ", err)
 				}
 				if config.Development || order == 200 {
-					util.Write("Entrada em SHORT: "+currentPriceStr, currentCoin)
+					util.Write("Entrada em SHORT: "+fmt.Sprint(valorCompra), currentCoin)
 					ordemAtiva = true
 					allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 					if err != nil {
