@@ -83,7 +83,7 @@ type ResponseQuery struct {
 	Coin      string    `gorm:"coin" json:"coin"`
 	Tend      string    `gorm:"tend" json:"tend"`
 	CurrValue float64   `gorm:"curr_value" json:"curr_value"`
-	TP        float64   `gorm:"SP" json:"SP"`
+	SP        float64   `gorm:"SP" json:"SP"`
 	SL        float64   `gorm:"SL" json:"SL"`
 }
 
