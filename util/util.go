@@ -3,8 +3,8 @@ package util
 import (
 	"binance_robot/config"
 	"binance_robot/database"
+	"binance_robot/listar_ordens"
 	"binance_robot/models"
-	"encoding/json"
 	"fmt"
 	"gorm.io/gorm"
 	"io"
@@ -19,30 +19,15 @@ import (
 	"time"
 )
 
-func ConvertBaseCoin(coin string, value float64) float64 {
-
+func ConvertBaseCoin(coin string, value float64) (float64, float64) {
+	var priceResp []models.PriceResponse
 	config.ReadFile()
 
-	url := config.BaseURL + "fapi/v1/ticker/price?symbol=" + coin
-	req, _ := http.NewRequest("GET", url, nil)
+	priceResp = listar_ordens.ListarUltimosValoresReais(coin, 1)
 
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		WriteError("Erro ao acessar a API para converter: ", err, coin)
-		os.Exit(1)
-
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	var priceResp models.PriceResponse
-	err = json.Unmarshal(body, &priceResp)
-	if err != nil {
-		fmt.Println("Erro ao decodificar JSON:", err)
+	if len(priceResp) == 0 {
+		fmt.Println("Tamanho do preço é vazio. Coin: ", coin)
+		return 0, 0
 	}
 
 	precision := 0
@@ -50,11 +35,8 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 	if coin == "BTCUSDT" || coin == "ETHUSDT" {
 		precision = 3
 	}
-	if priceResp.Price == "" {
-		fmt.Println("Preço é vazio, provavelmente devido a algum erro na requisição, StatusCode: ", response.StatusCode, " Coin: ", coin)
-	}
 
-	price, err := strconv.ParseFloat(priceResp.Price, 64)
+	price, err := strconv.ParseFloat(priceResp[0].Price, 64)
 	if err != nil {
 		fmt.Println("Erro ao converter preço para float64: ", err)
 	}
@@ -62,7 +44,7 @@ func ConvertBaseCoin(coin string, value float64) float64 {
 	q := value / price
 	quantity := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
 
-	return quantity
+	return quantity, price
 }
 
 func Write(message, coin string) {
