@@ -26,7 +26,6 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 	priceResp = listar_ordens.ListarUltimosValoresReais(coin, 1)
 
 	if len(priceResp) == 0 {
-		fmt.Println("Tamanho do preço é vazio. Coin: ", coin)
 		return 0, 0
 	}
 
