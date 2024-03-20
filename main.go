@@ -32,11 +32,11 @@ func main() {
 		for _, bot := range bots {
 			go func(bot models.ResponseQuery) {
 				if bot.Tend == "SHORT" {
-					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, -(bot.TP))
+					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, -(bot.SP))
 					return
 
 				} else if bot.Tend == "LONG" {
-					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, -(bot.SL), bot.TP)
+					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, -(bot.SL), bot.SP)
 					return
 				}
 			}(bot)
