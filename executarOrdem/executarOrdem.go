@@ -153,6 +153,9 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 			if side == "BUY" {
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+				if currentValue == 0 && priceBuy == 0 {
+					continue
+				}
 				valueCompradoCoin = priceBuy
 				start = time.Now()
 				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
