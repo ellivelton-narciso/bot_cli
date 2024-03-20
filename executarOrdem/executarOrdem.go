@@ -117,7 +117,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 	for {
 		if primeiraExec {
-			time.Sleep(2 * time.Second)
 			allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 			if err != nil {
 				primeiraExec = true
@@ -186,7 +185,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 					util.Historico(currentCoin, "BUY", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
-					forTime = 15 * time.Second
+					forTime = 14 * time.Second
 					q := valueCompradoCoin * (1 - 0.025*1.2)
 					stopSeguro := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
 					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "SELL", fmt.Sprint(stopSeguro))
@@ -239,7 +238,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 					util.Historico(currentCoin, "SELL", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
-					forTime = 15 * time.Second
+					forTime = 14 * time.Second
 					stopSeguro := valueCompradoCoin * (1 + 0.025*1.2)
 					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, side, fmt.Sprint(stopSeguro))
 					if err != nil {
