@@ -37,7 +37,7 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 
 	price, err := strconv.ParseFloat(priceResp[0].Price, 64)
 	if err != nil {
-		fmt.Println("Erro ao converter preço para float64: ", err)
+		WriteError("Erro ao converter preço para float64: ", err, coin)
 	}
 
 	q := value / price
