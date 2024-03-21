@@ -69,6 +69,14 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	}
 	tg := util.BuscarValoresTelegram(currentCoin)
 	if len(tg) == 0 {
+		util.Write("Erro ao fazer busca do telegram.", currentCoin)
+		err = criar_ordem.RemoverCoinDB(currentCoin)
+		if err != nil {
+			util.Write("Erro ao remover "+currentCoin+" do banco de dados", currentCoin)
+			time.Sleep(2 * time.Second)
+			return
+		}
+		time.Sleep(2 * time.Second)
 		return
 	}
 	currValueTelegram = tg[0].CurrValue
@@ -138,6 +146,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 		ultimosSaida, err = listar_ordens.ListarUltimosValores(currentCoin)
 		if err != nil {
+			util.WriteError("Erro ao listar ultimos valores, ", err, currentCoin)
 			continue
 		}
 
@@ -156,6 +165,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				started = timeValue.Format("2006-01-02 15:04:05")
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
+					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
 					continue
 				}
 				valueCompradoCoin = priceBuy
