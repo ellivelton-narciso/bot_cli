@@ -385,7 +385,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				}
 				util.Write("Valor de entrada ("+green("LONG")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 				// Deverá descer 3 consecutivos para fechar.
-				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue < ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second {
+				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue < ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second && ROI > 0 {
 					ultimosValores := "| "
 					for i := 0; i < 3; i++ {
 						condicaoOK = false
@@ -509,7 +509,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
 				// Deverá descer 3 consecutivos para fechar.
-				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue > ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second {
+				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue > ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second && ROI > 0 {
 					ultimosValores := "| "
 					for i := 0; i < 3; i++ {
 						condicaoOK = false
