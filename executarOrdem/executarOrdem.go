@@ -72,7 +72,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	tg := util.BuscarValoresTelegram(currentCoin)
 	if len(tg) == 0 {
 		util.Write("Erro ao fazer busca do telegram.", currentCoin)
-		err = criar_ordem.RemoverCoinDB(currentCoin)
+		err = criar_ordem.RemoverCoinDBW(currentCoin)
 		if err != nil {
 			util.Write("Erro ao remover "+currentCoin+" do banco de dados", currentCoin)
 			time.Sleep(2 * time.Second)
@@ -174,7 +174,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				valueCompradoCoin = priceBuy
 
 				if currValueTelegram < priceBuy*1.002 {
-					err = criar_ordem.RemoverCoinDB(currentCoin)
+					err = criar_ordem.RemoverCoinDBW(currentCoin)
 					if err != nil {
 						log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
 						time.Sleep(2 * time.Second)
@@ -202,7 +202,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 							}
 						}
 						if !ordemAtiva {
-							err = criar_ordem.RemoverCoinDB(currentCoin)
+							err = criar_ordem.RemoverCoinDBW(currentCoin)
 							if err != nil {
 								log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
 								time.Sleep(2 * time.Second)
@@ -213,7 +213,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 						continue
 					} else {
-						err = criar_ordem.RemoverCoinDB(currentCoin)
+						err = criar_ordem.RemoverCoinDBW(currentCoin)
 						if err != nil {
 							log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
 							time.Sleep(2 * time.Second)
@@ -246,7 +246,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 					util.Historico(currentCoin, "BUY", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
-					forTime = 14 * time.Second
+					forTime = 5 * time.Second
 					q := valueCompradoCoin * (1 - 0.025*1.2)
 					stopSeguro := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
 					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "SELL", fmt.Sprint(stopSeguro))
@@ -279,7 +279,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				valueCompradoCoin = priceBuy
 
 				if currValueTelegram > priceBuy*1.002 {
-					err = criar_ordem.RemoverCoinDB(currentCoin)
+					err = criar_ordem.RemoverCoinDBW(currentCoin)
 					if err != nil {
 						log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
 						time.Sleep(2 * time.Second)
@@ -306,7 +306,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 							}
 						}
 						if !ordemAtiva {
-							err = criar_ordem.RemoverCoinDB(currentCoin)
+							err = criar_ordem.RemoverCoinDBW(currentCoin)
 							if err != nil {
 								log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
 								time.Sleep(2 * time.Second)
@@ -317,7 +317,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 						continue
 					} else {
-						err = criar_ordem.RemoverCoinDB(currentCoin)
+						err = criar_ordem.RemoverCoinDBW(currentCoin)
 						if err != nil {
 							log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
 							time.Sleep(2 * time.Second)
@@ -350,7 +350,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 					util.Historico(currentCoin, "SELL", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
-					forTime = 14 * time.Second
+					forTime = 5 * time.Second
 					stopSeguro := valueCompradoCoin * (1 + 0.025*1.2)
 					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, side, fmt.Sprint(stopSeguro))
 					if err != nil {
