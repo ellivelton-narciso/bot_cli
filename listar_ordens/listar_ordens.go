@@ -51,13 +51,13 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 
 }
 
-func ListarUltimosValores(coin string) ([]models.HistoricoAll, error) {
+func ListarUltimosValores(coin string, count int64) ([]models.HistoricoAll, error) {
 	config.ReadFile()
 
 	var historicos []models.HistoricoAll
-	query := `SELECT * FROM hist_trading_values WHERE trading_name = ? ORDER BY hist_date desc  LIMIT 1`
+	query := `SELECT * FROM hist_trading_values WHERE trading_name = ? ORDER BY hist_date desc  LIMIT ?`
 
-	err := database.DB.Raw(query, coin).Scan(&historicos).Error
+	err := database.DB.Raw(query, coin, count).Scan(&historicos).Error
 	if err != nil {
 		return nil, err
 	}
