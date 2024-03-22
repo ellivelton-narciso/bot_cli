@@ -48,6 +48,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		precision           int
 		forTime             time.Duration
 		priceBuy            float64
+		condicaoOK          bool
 	)
 
 	red = color.New(color.FgHiRed).SprintFunc()
@@ -59,6 +60,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	roiAcumulado = 0.0
 	forTime = 900 * time.Millisecond
 	roiMaximo = 0
+	condicaoOK = false
 
 	side = strings.ToUpper(side)
 	if side == "LONG" {
@@ -144,7 +146,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 			}
 		}
 
-		ultimosSaida, err = listar_ordens.ListarUltimosValores(currentCoin)
+		ultimosSaida, err = listar_ordens.ListarUltimosValores(currentCoin, 4)
 		if err != nil {
 			util.WriteError("Erro ao listar ultimos valores, ", err, currentCoin)
 			continue
@@ -166,6 +168,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
 					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
+					time.Sleep(1 * time.Second)
 					continue
 				}
 				valueCompradoCoin = priceBuy
@@ -269,6 +272,8 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				started = timeValue.Format("2006-01-02 15:04:05")
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
+					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
+					time.Sleep(1 * time.Second)
 					continue
 				}
 				valueCompradoCoin = priceBuy
@@ -379,6 +384,42 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					roiTempoRealStr = red(fmt.Sprintf("%.4f", ROI) + "%")
 				}
 				util.Write("Valor de entrada ("+green("LONG")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
+				// Deverá descer 3 consecutivos para fechar.
+				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue < ultimosSaida[1].CurrentValue {
+					ultimosValores := "| "
+					for i := 0; i < 3; i++ {
+						condicaoOK = false
+						if ultimosSaida[i].CurrentValue >= ultimosSaida[i+1].CurrentValue {
+							break
+						}
+						ultimosValores += ultimosSaida[i].CurrentValue + " | "
+						condicaoOK = true
+					}
+					if condicaoOK {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						order = encerrarOrdem(currentCoin, side, currentValue)
+						if config.Development || order == 200 {
+							util.Write(ultimosValores, currentCoin)
+							util.Write("Valor desceu 3 vezes nas ultimas leituras. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+							util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+							err = criar_ordem.RemoverCoinDB(currentCoin)
+							if err != nil {
+								util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+								return
+							}
+							return
+						} else {
+							util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+							continue
+						}
+					}
+				}
 
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
@@ -466,6 +507,43 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					roiTempoRealStr = red(fmt.Sprintf("%.4f", ROI) + "%")
 				}
 				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
+
+				// Deverá descer 3 consecutivos para fechar.
+				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue > ultimosSaida[1].CurrentValue {
+					ultimosValores := "| "
+					for i := 0; i < 3; i++ {
+						condicaoOK = false
+						if ultimosSaida[i].CurrentValue <= ultimosSaida[i+1].CurrentValue {
+							break
+						}
+						ultimosValores += ultimosSaida[i].CurrentValue + " | "
+						condicaoOK = true
+					}
+					if condicaoOK {
+						roiAcumulado = roiAcumulado + ROI
+						if roiAcumulado > 0 {
+							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						} else {
+							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						order = encerrarOrdem(currentCoin, side, currentValue)
+						if config.Development || order == 200 {
+							util.Write(ultimosValores, currentCoin)
+							util.Write("Valor subiu 3 vezes nas ultimas leituras. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+							util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+							err = criar_ordem.RemoverCoinDB(currentCoin)
+							if err != nil {
+								util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+								return
+							}
+							return
+						} else {
+							util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+							continue
+						}
+					}
+				}
 
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
