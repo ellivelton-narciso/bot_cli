@@ -83,10 +83,21 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	}
 	currValueTelegram = tg[0].CurrValue
 	currentDateTelegram = tg[0].HistDate.Format("2006-01-02 15:04:05")
-	stop = (takeprofit * 2) + (fee * 2)
+	stop = ((takeprofit * alavancagem) * 2) + (fee * 2)
+	takeprofit = (takeprofit * alavancagem) - (fee * 2)
 
-	util.DefinirAlavancagem(currentCoin, alavancagem)
-	util.DefinirMargim(currentCoin, "ISOLATED")
+	err = util.DefinirAlavancagem(currentCoin, alavancagem)
+	if err != nil {
+		if !config.Development {
+			return
+		}
+	}
+	err = util.DefinirMargim(currentCoin, "ISOLATED")
+	if err != nil {
+		if !config.Development {
+			return
+		}
+	}
 	criar_ordem.EnviarCoinDB(currentCoin)
 
 	// Encerrar a aplicação graciosamente
@@ -100,10 +111,11 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 			msg := fmt.Sprintf("Sinal capturado: %v", sig)
 
 			order := encerrarOrdem(currentCoin, side, currentValue)
+			time.Sleep(5 * time.Second)
 			if config.Development || order == 200 {
 				util.Write(msg+" . Ordem encerrada: "+currentCoin, currentCoin)
 				util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
-				err = criar_ordem.RemoverCoinDB(currentCoin)
+				err = criar_ordem.RemoverCoinDBW(currentCoin)
 				if err != nil {
 					msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
 					util.WriteError(msgErr, err, currentCoin)
@@ -224,7 +236,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					}
 				}
 				if config.Development || order == 200 {
-					util.Write("Entrada em LONG: "+currentPriceStr, currentCoin)
+					util.Write("Entrada em LONG: "+currentPriceStr+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop), currentCoin)
 					ordemAtiva = true
 					allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 					if err != nil {
@@ -328,7 +340,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 					}
 				}
 				if config.Development || order == 200 {
-					util.Write("Entrada em SHORT: "+currentPriceStr, currentCoin)
+					util.Write("Entrada em SHORT: "+currentPriceStr+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop), currentCoin)
 					ordemAtiva = true
 					allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 					if err != nil {
@@ -385,7 +397,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				}
 				util.Write("Valor de entrada ("+green("LONG")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 				// Deverá descer 3 consecutivos para fechar.
-				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue < ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second && ROI > 0 {
+				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue < ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second && (ROI > 0 && ROI < takeprofit) {
 					ultimosValores := "| "
 					for i := 0; i < 3; i++ {
 						condicaoOK = false
@@ -423,12 +435,14 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
+					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
 					if err != nil {
 						util.WriteError("Erro ao buscar valor anterior para compararar: ", err, currentCoin)
 						continue
 					}
 					util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 
+					util.Write("Valor atual: "+currentPriceStr+" Valor 5min atrás: "+ultimoMinutoStr, currentCoin)
 					if currentPrice < ultimoMinuto {
 						roiAcumulado = roiAcumulado + ROI
 						if roiAcumulado > 0 {
@@ -509,7 +523,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 				util.Write("Valor de entrada ("+red("SHORT")+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
 				// Deverá descer 3 consecutivos para fechar.
-				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue > ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second && ROI > 0 {
+				if len(ultimosSaida) >= 4 && ultimosSaida[0].CurrentValue > ultimosSaida[1].CurrentValue && now.Sub(start) >= 45*time.Second && (ROI > 0 && ROI < takeprofit) {
 					ultimosValores := "| "
 					for i := 0; i < 3; i++ {
 						condicaoOK = false
@@ -547,11 +561,12 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
+					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
 					if err != nil {
 						util.WriteError("Erro ao buscar valor anterior para compararar: ", err, currentCoin)
 						continue
 					}
-
+					util.Write("Valor atual: "+currentPriceStr+" Valor 5min atrás: "+ultimoMinutoStr, currentCoin)
 					if currentPrice > ultimoMinuto {
 						roiAcumulado = roiAcumulado + ROI
 						if roiAcumulado > 0 {

@@ -94,7 +94,7 @@ func stripColor(message string) string {
 	return regex.ReplaceAllString(message, "")
 }
 
-func DefinirAlavancagem(currentCoin string, alavancagem float64) {
+func DefinirAlavancagem(currentCoin string, alavancagem float64) error {
 	now := time.Now()
 	timestamp := now.UnixMilli()
 	apiParams := "symbol=" + currentCoin + "&leverage=" + fmt.Sprint(alavancagem) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
@@ -103,7 +103,7 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -111,7 +111,7 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
@@ -121,9 +121,10 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) {
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
 	Write(string(body), currentCoin)
+	return nil
 }
 
-func DefinirMargim(currentCoin, margim string) {
+func DefinirMargim(currentCoin, margim string) error {
 	now := time.Now()
 	timestamp := now.UnixMilli()
 	margim = strings.ToUpper(margim)
@@ -132,7 +133,7 @@ func DefinirMargim(currentCoin, margim string) {
 	url := config.BaseURL + "fapi/v1/marginType?" + apiParams + "&signature=" + signature
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -140,7 +141,7 @@ func DefinirMargim(currentCoin, margim string) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
@@ -150,7 +151,7 @@ func DefinirMargim(currentCoin, margim string) {
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
 	Write(string(body), currentCoin)
-
+	return nil
 }
 
 func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64) {
