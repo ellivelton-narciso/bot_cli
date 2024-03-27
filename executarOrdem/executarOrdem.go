@@ -513,9 +513,15 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 				// Condição que fecha 2x o TakeProfit
 				if canClose && ROI < roiMaximo && ROI >= takeprofit {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
 					order = encerrarOrdem(currentCoin, side, currentValue)
 					if config.Development || order == 200 {
-						util.Write("ROI está 2x o Take Profit. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Write("Ordem encerrada. 2x Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
 						err = criar_ordem.RemoverCoinDB(currentCoin)
@@ -661,11 +667,18 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 				// Condição que fecha 2x o TakeProfit
 				if canClose && ROI < roiMaximo && ROI >= takeprofit {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
 					order = encerrarOrdem(currentCoin, side, currentValue)
 					if config.Development || order == 200 {
-						util.Write("ROI está 2x o Take Profit. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Write("Ordem encerrada - 2x Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
-						util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+
 						err = criar_ordem.RemoverCoinDB(currentCoin)
 						if err != nil {
 							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
