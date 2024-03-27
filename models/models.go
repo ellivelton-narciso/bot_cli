@@ -79,18 +79,28 @@ type BotHistory struct {
 }
 
 type ResponseQuery struct {
-	HistDate  time.Time `gorm:"hist_date" json:"hist_date"`
-	Coin      string    `gorm:"coin" json:"coin"`
-	Tend      string    `gorm:"tend" json:"tend"`
-	CurrValue float64   `gorm:"curr_value" json:"curr_value"`
-	SP        float64   `gorm:"SP" json:"SP"`
-	SL        float64   `gorm:"SL" json:"SL"`
+	HistDate   time.Time `gorm:"hist_date" json:"hist_date"`
+	Coin       string    `gorm:"coin" json:"coin"`
+	Tend       string    `gorm:"tend" json:"tend"`
+	CurrValue  float64   `gorm:"curr_value" json:"curr_value"`
+	SP         float64   `gorm:"SP" json:"SP"`
+	SL         float64   `gorm:"SL" json:"SL"`
+	OtherValue float64   `gorm:"other_value" json:"other_value"`
 }
 
 type HistoricoAll struct {
 	HistDate     time.Time `gorm:"column:hist_date" json:"hist_date"`
 	TradingName  string    `gorm:"column:trading_name" json:"trading_name"`
 	CurrentValue string    `gorm:"column:curr_value" json:"curr_value"`
+}
+
+type ResponseBookTicker struct {
+	Symbol       string `json:"symbol"`
+	BidPrice     string `json:"bidPrice"`
+	BidQty       string `json:"bidQty"`
+	AskPrice     string `json:"askPrice"`
+	Time         int64  `json:"time"`
+	LastUpdateID int64  `json:"lastUpdateId"`
 }
 
 func (Historico) TableName() string {
