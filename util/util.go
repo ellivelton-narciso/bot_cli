@@ -220,7 +220,7 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 
 func GetPrecision(currentCoin string) (int, error) {
 	url := "https://testnet.binancefuture.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -239,7 +239,7 @@ func GetPrecision(currentCoin string) (int, error) {
 		}
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
-	Write(string(body), currentCoin)
+	//Write(string(body), currentCoin)
 
 	var response models.ResponseBookTicker
 	err = json.Unmarshal(body, &response)
