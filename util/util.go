@@ -5,6 +5,7 @@ import (
 	"binance_robot/database"
 	"binance_robot/listar_ordens"
 	"binance_robot/models"
+	"encoding/json"
 	"fmt"
 	"gorm.io/gorm"
 	"io"
@@ -29,15 +30,23 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 		return 0, 0
 	}
 
-	precision := 0
-
-	if coin == "BTCUSDT" || coin == "ETHUSDT" {
-		precision = 3
-	}
-
 	price, err := strconv.ParseFloat(priceResp[0].Price, 64)
 	if err != nil {
 		WriteError("Erro ao converter preço para float64: ", err, coin)
+	}
+
+	precision, err := GetPrecision(coin)
+	if err != nil {
+		precision = 0
+		WriteError("Erro ao buscar precisao para converter a moeda: ", err, coin)
+	}
+
+	if coin == "BTCUSDT" || coin == "ETHUSDT" || coin == "YFIUSDT" {
+		precision = 3
+	} else if coin == "BNBUSDT" {
+		precision = 2
+	} else if coin == "BSVUSDT" || coin == "ARUSDT" || price > 10 {
+		precision = 1
 	}
 
 	q := value / price
@@ -209,12 +218,38 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 
 }
 
-func GetPrecision(str string) int {
-	parts := strings.Split(str, ".")
-
-	if len(parts) == 1 {
-		return 0
+func GetPrecision(currentCoin string) (int, error) {
+	url := "https://testnet.binancefuture.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return 0, err
 	}
 
-	return len(parts[1])
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
+	Write(string(body), currentCoin)
+
+	var response models.ResponseBookTicker
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return 0, err
+	}
+	parts := strings.Split(response.BidQty, ".")
+	if len(parts) == 1 {
+		return 0, nil
+	}
+	precision := len(parts[1])
+	return precision, nil
 }
