@@ -49,6 +49,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		forTime             time.Duration
 		priceBuy            float64
 		condicaoOK          bool
+		canClose            bool
 	)
 
 	red = color.New(color.FgHiRed).SprintFunc()
@@ -61,6 +62,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	forTime = 900 * time.Millisecond
 	roiMaximo = 0
 	condicaoOK = false
+	canClose = false
 
 	side = strings.ToUpper(side)
 	if side == "LONG" {
@@ -99,6 +101,11 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 		}
 	}
 	criar_ordem.EnviarCoinDB(currentCoin)
+	precision, err = util.GetPrecision(currentCoin)
+	if err != nil {
+		precision = 0
+		util.WriteError("Erro ao buscar precisao para converter a moeda: ", err, currentCoin)
+	}
 
 	// Encerrar a aplicação graciosamente
 	sigChan := make(chan os.Signal, 1)
@@ -170,7 +177,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 			continue
 		}
 		currentPriceStr = fmt.Sprint(currentPrice)
-		precision = util.GetPrecision(currentPriceStr)
 		if !ordemAtiva { // Não tem ordem ainda
 
 			if side == "BUY" {
@@ -252,8 +258,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 								started_timestamp := item.UpdateTime
 								timeStarted := time.Unix(0, started_timestamp*int64(time.Millisecond))
 								started = timeStarted.Format("2006-01-02 15:04:05")
-
-								precision = util.GetPrecision(item.EntryPrice)
 							}
 						}
 					}
@@ -356,8 +360,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 								startedTimestamp := item.UpdateTime
 								timeStarted := time.Unix(0, startedTimestamp*int64(time.Millisecond))
 								started = timeStarted.Format("2006-01-02 15:04:05")
-
-								precision = util.GetPrecision(item.EntryPrice)
 							}
 						}
 					}
@@ -432,7 +434,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 				}
-
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
@@ -510,6 +511,30 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 
 				}
 
+				// Condição que fecha 2x o TakeProfit
+				if canClose && ROI < roiMaximo && ROI >= takeprofit {
+					order = encerrarOrdem(currentCoin, side, currentValue)
+					if config.Development || order == 200 {
+						util.Write("ROI está 2x o Take Profit. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+							return
+						}
+						return
+					} else {
+						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+						continue
+					}
+				} else {
+					canClose = false
+				}
+				if ROI >= takeprofit*2+(fee*2) {
+					canClose = true
+				}
+
 			} else if side == "SELL" && !primeiraExec {
 				ROI = (((valueCompradoCoin - currentPrice) / (valueCompradoCoin / alavancagem)) * 100) - (fee * 2)
 				if ROI > roiMaximo {
@@ -558,7 +583,6 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						}
 					}
 				}
-
 				if ROI >= takeprofit {
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
@@ -633,6 +657,30 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 						continue
 					}
 
+				}
+
+				// Condição que fecha 2x o TakeProfit
+				if canClose && ROI < roiMaximo && ROI >= takeprofit {
+					order = encerrarOrdem(currentCoin, side, currentValue)
+					if config.Development || order == 200 {
+						util.Write("ROI está 2x o Take Profit. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+						err = criar_ordem.RemoverCoinDB(currentCoin)
+						if err != nil {
+							util.WriteError("Erro ao remover ativo do banco de dados: ", err, currentCoin)
+							return
+						}
+						return
+					} else {
+						util.WriteError("Erro ao fechar a ordem, encerre manualmente pela binance: ", err, currentCoin)
+						continue
+					}
+				} else {
+					canClose = false
+				}
+				if ROI >= takeprofit*2+(fee*2) {
+					canClose = true
 				}
 			}
 		}
