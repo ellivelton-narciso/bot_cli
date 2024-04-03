@@ -85,7 +85,7 @@ func OdemExecucao(currentCoin, side string, value, alavancagem, stop, takeprofit
 	}
 	currValueTelegram = tg[0].CurrValue
 	currentDateTelegram = tg[0].HistDate.Format("2006-01-02 15:04:05")
-	stop = ((takeprofit * alavancagem) * 2) + (fee * 2)
+	stop = (stop * alavancagem) + (fee * 2)
 	takeprofit = (takeprofit * alavancagem) - (fee * 2)
 
 	err = util.DefinirAlavancagem(currentCoin, alavancagem)
