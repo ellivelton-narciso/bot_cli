@@ -38,11 +38,11 @@ func main() {
 					bot.SP = -(bot.SP)
 				}
 				if bot.Tend == "SHORT" {
-					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, bot.SP)
+					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
 					return
 
 				} else if bot.Tend == "LONG" {
-					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, bot.SP)
+					executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
 					return
 				}
 			}(bot)
