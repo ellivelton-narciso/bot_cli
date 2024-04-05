@@ -219,7 +219,7 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 }
 
 func GetPrecision(currentCoin string) (int, error) {
-	url := "https://testnet.binancefuture.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
+	url := "https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, err
