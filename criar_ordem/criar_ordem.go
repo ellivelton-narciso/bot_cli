@@ -13,13 +13,11 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin, side, quantity string) (int, error) {
-
+func CriarOrdem(coin, side, quantity, posSide string) (int, error) {
 	config.ReadFile()
-
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "&type=MARKET&side=" + side + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "&type=MARKET&side=" + side + "&positionSide=" + posSide + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
@@ -87,12 +85,12 @@ func RemoverCoinDBW(coin string) error {
 	return nil
 }
 
-func CriarSLSeguro(coin, side, stop string) (int, string, error) {
+func CriarSLSeguro(coin, side, stop, posSide string) (int, string, error) {
 	config.ReadFile()
 
 	now := time.Now()
 	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "&type=STOP_MARKET&side=" + side + "&closePosition=true&stopPrice=" + stop + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+	apiParamsOrdem := "symbol=" + coin + "&type=STOP_MARKET&side=" + side + "&positionSide=" + posSide + "&closePosition=true&stopPrice=" + stop + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
