@@ -62,7 +62,7 @@ func ReadFile() {
 	Alavancagem = UserConfig.Alavancagem
 	Tabela = UserConfig.Tabela
 	ViewFiltro = UserConfig.ViewFiltro
-	Tabela = UserConfig.TabelaHist
+	TabelaHist = UserConfig.TabelaHist
 	Host = os.Getenv("HOST")
 	User = os.Getenv("USER")
 	Pass = os.Getenv("PASS")
