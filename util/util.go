@@ -129,7 +129,9 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) error {
 		}
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
-	Write(string(body), currentCoin)
+	if res.StatusCode != 200 {
+		Write(string(body), currentCoin)
+	}
 	return nil
 }
 
@@ -159,7 +161,9 @@ func DefinirMargim(currentCoin, margim string) error {
 		}
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
-	Write(string(body), currentCoin)
+	if res.StatusCode != 200 {
+		Write(string(body), currentCoin)
+	}
 	return nil
 }
 
@@ -169,14 +173,14 @@ func Historico(coin, side, started, parametros, currDateTelegram string, currVal
 	count := contagemRows(basecoin, started)
 
 	if count == 1 {
-		query := "UPDATE hist_transactions SET " + parametros + " = ?, " + parametros + "_time = NOW(), " + parametros + "_roi = ? WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
+		query := "UPDATE " + config.TabelaHist + " SET " + parametros + " = ?, " + parametros + "_time = NOW(), " + parametros + "_roi = ? WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
 		result := database.DB.Exec(query, currValue, roi, basecoin, started, side)
 		if result.Error != nil {
 			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, basecoin)
 			return
 		}
 	} else {
-		query := "INSERT INTO hist_transactions (coin, side, entryPrice, started_at, price_tg, date_tg) VALUES (?, ?, ?, ?, ?, ?)"
+		query := "INSERT INTO " + config.TabelaHist + " (coin, side, entryPrice, started_at, price_tg, date_tg) VALUES (?, ?, ?, ?, ?, ?)"
 		result := database.DB.Exec(query, basecoin, side, entryPrice, started, currValueTelegram, currDateTelegram)
 		if result.Error != nil {
 			WriteError("Erro ao inserir dados iniciais da moeda na tabela hist_transactions: ", result.Error, basecoin)
@@ -189,7 +193,7 @@ func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
 	count := contagemRows(coin, started)
 
 	if count == 1 {
-		query := "UPDATE hist_transactions SET final_price = ?, final_time = NOW(), final_roi = ? WHERE coin = ? AND started_at = ? AND side = ?"
+		query := "UPDATE " + config.TabelaHist + " SET final_price = ?, final_time = NOW(), final_roi = ? WHERE coin = ? AND started_at = ? AND side = ?"
 		result := database.DB.Exec(query, currValue, roi, coin, started, side)
 		if result.Error != nil {
 			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, coin)
@@ -199,7 +203,7 @@ func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
 }
 
 func contagemRows(basecoin, started string) int {
-	query := "SELECT COUNT(*) FROM hist_transactions WHERE coin = ? AND started_at = ?"
+	query := "SELECT COUNT(*) FROM " + config.TabelaHist + " WHERE coin = ? AND started_at = ?"
 
 	var count int
 	result := database.DB.Raw(query, basecoin, started).Scan(&count)
@@ -239,7 +243,7 @@ func GetPrecision(currentCoin string) (int, error) {
 		}
 	}(res.Body)
 	body, err := ioutil.ReadAll(res.Body)
-	//Write(string(body), currentCoin)
+	Write(string(body), currentCoin)
 
 	var response models.ResponseBookTicker
 	err = json.Unmarshal(body, &response)
