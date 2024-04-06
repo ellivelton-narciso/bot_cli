@@ -145,6 +145,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 
 	for {
 		if primeiraExec {
+			time.Sleep(500 * time.Millisecond)
 			if !config.Development {
 				allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 				if err != nil {
@@ -189,8 +190,13 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
 					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
-					time.Sleep(1 * time.Second)
-					continue
+					err = criar_ordem.RemoverCoinDBW(currentCoin)
+					if err != nil {
+						util.Write("Erro ao remover "+currentCoin+" do banco de dados", currentCoin)
+						time.Sleep(1 * time.Second)
+						return
+					}
+					return
 				}
 				valueCompradoCoin = priceBuy
 
@@ -293,8 +299,13 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
 				if currentValue == 0 || priceBuy == 0 {
 					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
-					time.Sleep(1 * time.Second)
-					continue
+					err = criar_ordem.RemoverCoinDBW(currentCoin)
+					if err != nil {
+						util.Write("Erro ao remover "+currentCoin+" do banco de dados", currentCoin)
+						time.Sleep(1 * time.Second)
+						return
+					}
+					return
 				}
 				valueCompradoCoin = priceBuy
 
