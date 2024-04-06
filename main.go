@@ -21,7 +21,7 @@ func main() {
 
 	for {
 		bots = nil
-		if err := database.DB.Raw(`select * from v_selected_orders`).Scan(&bots).Error; err != nil {
+		if err := database.DB.Find(&bots).Error; err != nil {
 			log.Println("Erro ao buscar dados da tabela v_selected_orders:", err)
 			continue
 		}
