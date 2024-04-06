@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"binance_robot/config"
+	"time"
+)
 
 type ResponseOrderStruct struct {
 	OrderId                 int64  `json:"orderId"`
@@ -112,7 +115,13 @@ func (BotHistory) TableName() string {
 }
 
 func (ResponseQuery) TableName() string {
-	return "v_selected_orders"
+	config.ReadFile()
+	return config.ViewFiltro
 }
 
 func (HistoricoAll) TableName() string { return "hist_trading_values" }
+
+func (Bots) TableName() string {
+	config.ReadFile()
+	return config.Tabela
+}
