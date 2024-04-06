@@ -18,6 +18,9 @@ type UserStruct struct {
 	Development bool    `json:"development"`
 	Value       float64 `json:"value"`
 	Alavancagem float64 `json:"alavancagem"`
+	Tabela      string  `json:"tabela"`
+	ViewFiltro  string  `json:"viewFiltro"`
+	TabelaHist  string  `json:"tabelaHist"`
 }
 
 var (
@@ -32,6 +35,9 @@ var (
 	Development bool
 	Value       float64
 	Alavancagem float64
+	Tabela      string
+	ViewFiltro  string
+	TabelaHist  string
 	UserConfig  UserStruct
 )
 
@@ -43,7 +49,7 @@ func ReadFile() {
 	}
 	err = json.Unmarshal(user, &UserConfig)
 
-	err = godotenv.Load()
+	err = godotenv.Load(".env")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -54,6 +60,9 @@ func ReadFile() {
 	Development = UserConfig.Development
 	Value = UserConfig.Value
 	Alavancagem = UserConfig.Alavancagem
+	Tabela = UserConfig.Tabela
+	ViewFiltro = UserConfig.ViewFiltro
+	Tabela = UserConfig.TabelaHist
 	Host = os.Getenv("HOST")
 	User = os.Getenv("USER")
 	Pass = os.Getenv("PASS")
