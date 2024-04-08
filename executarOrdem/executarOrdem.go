@@ -240,7 +240,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						}
 					}
 					if config.Development || order == 200 {
-						util.Write("Entrada em LONG: "+currentPriceStr+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
+						util.Write("Entrada em LONG: "+fmt.Sprint(valueCompradoCoin)+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
 						ordemAtiva = true
 						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 						if err != nil {
@@ -349,7 +349,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						}
 					}
 					if config.Development || order == 200 {
-						util.Write("Entrada em SHORT: "+currentPriceStr+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
+						util.Write("Entrada em SHORT: "+fmt.Sprint(valueCompradoCoin)+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
 						ordemAtiva = true
 						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 						if err != nil {
