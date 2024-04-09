@@ -23,9 +23,11 @@ func main() {
 		bots = nil
 		if err := database.DB.Find(&bots).Error; err != nil {
 			log.Println("Erro ao buscar dados da tabela v_selected_orders:", err)
+			time.Sleep(5 * time.Second)
 			continue
 		}
 		if len(bots) == 0 {
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
