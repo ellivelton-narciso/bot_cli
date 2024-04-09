@@ -78,6 +78,7 @@ func RemoverCoinDB(coin string) error {
 	return nil
 }
 func RemoverCoinDBW(coin string) error {
+	time.Sleep(2 * time.Second)
 	if err := database.DB.Where("coin = ?", coin).Delete(&models.Bots{}).Error; err != nil {
 		util.WriteError("\n Erro ao remover coin na DB: ", err, coin)
 		return err
