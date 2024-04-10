@@ -52,7 +52,7 @@ func CriarOrdem(coin, side, quantity, posSide string) (int, error) {
 	if err != nil {
 		return 500, err
 	}
-	return res.StatusCode, err
+	return res.StatusCode, nil
 }
 
 func EnviarCoinDB(coin string) {
@@ -65,7 +65,7 @@ func EnviarCoinDB(coin string) {
 	if err := database.DB.Create(&models.Bots{Coin: coin}).Error; err != nil {
 		fmt.Println("\n Erro ao inserir coin na DB: ", err)
 	}
-
+	util.Write("Inserido na tabela bots", coin)
 	return
 }
 
@@ -75,6 +75,7 @@ func RemoverCoinDB(coin string, tempo time.Duration) error {
 		util.WriteError("\n Erro ao remover coin na DB: ", err, coin)
 		return err
 	}
+	util.Write("Removido da tabela bots", coin)
 	return nil
 }
 
