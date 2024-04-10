@@ -136,7 +136,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 			time.Sleep(5 * time.Second)
 			if config.Development || order == 200 {
 				util.Write(msg+" . Ordem encerrada: "+currentCoin, currentCoin)
-				util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+				util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 				err = criar_ordem.RemoverCoinDB(currentCoin, time.Second)
 				if err != nil {
 					msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
@@ -171,7 +171,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
 					if entryPriceFloat > 0 {
 						util.Write("Ja possui ordem ativa.", currentCoin)
-						util.RegistroLogs(currentCoin, side, currentDateTelegram, 2)
+						util.RegistroLogs(currentCoin, side, currentDateTelegram, 2, currValueTelegram)
 						ordemAtiva = true
 					}
 				}
@@ -219,16 +219,17 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						return
 					}
 					util.Write("LONG - Valor do Telegram é menor que o preço atual de mercado +  0.2%, Valor Telegram: "+fmt.Sprintf("%.4f", currValueTelegram)+" Valor atual + 0.2%: "+fmt.Sprintf("%.4f", priceBuy*1.002), currentCoin)
-					date, errDate := time.Parse("2006-01-02 15:04:05", currentDateTelegram)
-					if errDate != nil {
-						util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
-					}
-					if start.Sub(date) >= 45*time.Second {
-						util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
-						util.RegistroLogs(currentCoin, side, currentDateTelegram, 3)
-						time.Sleep(2 * time.Minute)
-						return
-					}
+					return
+				}
+
+				date, errDate := time.Parse("2006-01-02 15:04:05", currentDateTelegram)
+				if errDate != nil {
+					util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
+				}
+				if start.Sub(date) >= 45*time.Second {
+					util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
+					util.RegistroLogs(currentCoin, side, currentDateTelegram, 3, currValueTelegram)
+					time.Sleep(2 * time.Minute)
 					return
 				}
 
@@ -277,7 +278,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 							}
 						}
 					}
-					util.Historico(currentCoin, "BUY", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
+					util.Historico(currentCoin, "BUY", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
 					forTime = 5 * time.Second
 					q := valueCompradoCoin * (1 - ((stop / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(4))) / math.Pow(10, float64(4))
@@ -295,7 +296,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 
 				} else {
 					util.Write("A ordem de LONG não foi totalmente completada.", currentCoin)
-					util.RegistroLogs(currentCoin, side, currentDateTelegram, 4)
+					util.RegistroLogs(currentCoin, side, currentDateTelegram, 4, currValueTelegram)
 					ordemAtiva = false
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
 					if err != nil {
@@ -327,18 +328,19 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						return
 					}
 					util.Write("SHORT - Valor do Telegram é maior que o preço atual de mercado +  0.2%, Valor Telegram: "+fmt.Sprintf("%.4f", currValueTelegram)+" Valor atual + 0.2%: "+fmt.Sprintf("%.4f", priceBuy*1.002), currentCoin)
-					date, errDate := time.Parse("2006-01-02 15:04:05", currentDateTelegram)
-					if errDate != nil {
-						util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
-					}
-					if start.Sub(date) >= 45*time.Second {
-						util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
-						util.RegistroLogs(currentCoin, side, currentDateTelegram, 2)
-						time.Sleep(2 * time.Minute)
-						return
-					}
 					return
 				}
+				date, errDate := time.Parse("2006-01-02 15:04:05", currentDateTelegram)
+				if errDate != nil {
+					util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
+				}
+				if start.Sub(date) >= 45*time.Second {
+					util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
+					util.RegistroLogs(currentCoin, side, currentDateTelegram, 2, currValueTelegram)
+					time.Sleep(2 * time.Minute)
+					return
+				}
+
 				order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), posSide)
 				if err != nil {
 					log.Println("Erro ao dar entrada em SHORT: ", err)
@@ -398,7 +400,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 							}
 						}
 					}
-					util.Historico(currentCoin, "SELL", started, "", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
+					util.Historico(currentCoin, "SELL", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
 					forTime = 5 * time.Second
 					q := valueCompradoCoin * (1 + ((stop / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(4))) / math.Pow(10, float64(4))
@@ -416,7 +418,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 
 				} else {
 					util.Write("A ordem de SHORT não foi totalmente completada.", currentCoin)
-					util.RegistroLogs(currentCoin, side, currentDateTelegram, 4)
+					util.RegistroLogs(currentCoin, side, currentDateTelegram, 4, currValueTelegram)
 					ordemAtiva = false
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
 					if err != nil {
@@ -463,7 +465,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 							util.Write(ultimosValores, currentCoin)
 							util.Write("Valor desceu 3 vezes nas ultimas leituras. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-							util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+							util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 							return
 						} else {
 							util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -503,7 +505,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						if config.Development || order == 200 {
 							util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-							util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+							util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 							return
 						} else {
 							util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -534,7 +536,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					if config.Development || order == 200 {
 						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -552,7 +554,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					if config.Development || order == 200 {
 						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -584,7 +586,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					if config.Development || order == 200 {
 						util.Write("Ordem encerrada. 2x Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -643,7 +645,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 							util.Write(ultimosValores, currentCoin)
 							util.Write("Valor subiu 3 vezes nas ultimas leituras. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-							util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+							util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 							return
 						} else {
 							util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -682,7 +684,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						if config.Development || order == 200 {
 							util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-							util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+							util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 
 							return
 						} else {
@@ -714,7 +716,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					if config.Development || order == 200 {
 						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
@@ -737,7 +739,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue)
 					if config.Development || order == 200 {
 						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 						util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 						return
 					} else {
@@ -771,7 +773,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					if config.Development || order == 200 {
 						util.Write("Ordem encerrada - 2x Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-						util.EncerrarHistorico(currentCoin, side, started, currentPrice, ROI)
+						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 
 						err = criar_ordem.RemoverCoinDB(currentCoin, 3*time.Minute)
 						if err != nil {
