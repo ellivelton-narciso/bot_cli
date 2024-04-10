@@ -155,6 +155,8 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
 					if entryPriceFloat > 0 {
 						util.Write("Ja possui ordem ativa.", currentCoin)
+						util.RegistroLogs(currentCoin, "Ja possui ordem ativa.", side, tipoAlerta)
+
 						ordemAtiva = true
 					}
 				}
@@ -204,6 +206,15 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						return
 					}
 					util.Write("LONG - Valor do Telegram é menor que o preço atual de mercado +  0.2%, Valor Telegram: "+fmt.Sprintf("%.4f", currValueTelegram)+" Valor atual + 0.2%: "+fmt.Sprintf("%.4f", priceBuy*1.002), currentCoin)
+					date, errDate := time.Parse("2006-01-02 15:04:05", currentDateTelegram)
+					if errDate != nil {
+						util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
+					}
+					if start.Sub(date) >= 45*time.Second {
+						util.RegistroLogs(currentCoin, "Preço de entrada pior 0.2% e ja passou 45s", side, tipoAlerta)
+						time.Sleep(2 * time.Minute)
+						return
+					}
 					return
 				}
 
@@ -279,6 +290,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 
 				} else {
 					util.Write("A ordem de LONG não foi totalmente completada.", currentCoin)
+					util.RegistroLogs(currentCoin, "A ordem de LONG não foi totalmente completada.", side, tipoAlerta)
 					ordemAtiva = false
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
 					if err != nil {
@@ -310,6 +322,15 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						return
 					}
 					util.Write("SHORT - Valor do Telegram é maior que o preço atual de mercado +  0.2%, Valor Telegram: "+fmt.Sprintf("%.4f", currValueTelegram)+" Valor atual + 0.2%: "+fmt.Sprintf("%.4f", priceBuy*1.002), currentCoin)
+					date, errDate := time.Parse("2006-01-02 15:04:05", currentDateTelegram)
+					if errDate != nil {
+						util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
+					}
+					if start.Sub(date) >= 45*time.Second {
+						util.RegistroLogs(currentCoin, "Preço de entrada pior 0.2% e ja passou 45s", side, tipoAlerta)
+						time.Sleep(2 * time.Minute)
+						return
+					}
 					return
 				}
 				order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), posSide)
@@ -390,6 +411,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 				} else {
 					util.Write("A ordem de SHORT não foi totalmente completada. Irei voltar a buscar novas oportunidades. Pode a qualquer momento digitar SELL para entrar em SHORT.", currentCoin)
 					ordemAtiva = false
+					util.RegistroLogs(currentCoin, "A ordem de SHORT não foi totalmente completada.", side, tipoAlerta)
 				}
 
 			}
