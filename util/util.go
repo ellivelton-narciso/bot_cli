@@ -167,35 +167,56 @@ func DefinirMargim(currentCoin, margim string) error {
 	return nil
 }
 
-func RegistroLogs(basecoin, motivoString, side string, alerta float64) {
+func RegistroLogs(basecoin, side, currDateTelegram string, motivo int64) {
 	config.ReadFile()
-	query := "INSERT INTO history_logs (hist_date, coin, motivo, alerta, side) VALUES (NOW(), ?, ?, ?, ?)"
-	result := database.DB.Exec(query, basecoin, motivoString, alerta, side)
-	if result.Error != nil {
-		WriteError("Erro ao inserir dados na tabela de historico de logs, motivo: ", result.Error, basecoin)
-		return
+	count := contagemRows(basecoin, currDateTelegram)
+
+	switch count {
+	case 0:
+		query := "INSERT INTO " + config.TabelaHist + " (coin, side, started_at, date_tg trigger_tg) VALUES (?, ?, NOW(), ?, ?)"
+		result := database.DB.Exec(query, basecoin, side, currDateTelegram, motivo)
+		if result.Error != nil {
+			WriteError("Erro ao inserir dados na tabela de historico de logs, motivo: ", result.Error, basecoin)
+			return
+		}
+		break
+	case 1:
+		query := "UPDATE " + config.TabelaHist + " SET trigger_tg = ? WHERE coin = ? AND side = ? AND date_tg = ?"
+		result := database.DB.Exec(query, motivo, basecoin, side, currDateTelegram)
+		if result.Error != nil {
+			WriteError("Erro ao atualizar dados na tabela de historico de logs, motivo: ", result.Error, basecoin)
+			return
+		}
+		break
+	default:
+		Write("Na tabela posui mais de uma ordem para o mesmo alerta", basecoin)
+		break
+
 	}
 }
 
 func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64) {
 	config.ReadFile()
 	basecoin := coin
-	count := contagemRows(basecoin, started)
+	count := contagemRows(basecoin, currDateTelegram)
 
-	if count == 1 {
-		query := "UPDATE " + config.TabelaHist + " SET " + parametros + " = ?, " + parametros + "_time = NOW(), " + parametros + "_roi = ? WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
-		result := database.DB.Exec(query, currValue, roi, basecoin, started, side)
-		if result.Error != nil {
-			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, basecoin)
-			return
-		}
-	} else {
+	switch count {
+	case 0:
 		query := "INSERT INTO " + config.TabelaHist + " (coin, side, entryPrice, started_at, price_tg, date_tg) VALUES (?, ?, ?, ?, ?, ?)"
 		result := database.DB.Exec(query, basecoin, side, entryPrice, started, currValueTelegram, currDateTelegram)
 		if result.Error != nil {
 			WriteError("Erro ao inserir dados iniciais da moeda na tabela hist_transactions: ", result.Error, basecoin)
 			return
 		}
+		break
+	default:
+		query := "UPDATE " + config.TabelaHist + " SET " + parametros + " = ?, " + parametros + "_time = NOW(), " + parametros + "_roi = ?, coin = ?, side = ?, entryPrice = ?, started_at = ?, price_tg = ?, date_tg = ?, trigger_tg = -1 WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
+		result := database.DB.Exec(query, currValue, roi, basecoin, side, entryPrice, started, currValueTelegram, currDateTelegram, basecoin, started, side)
+		if result.Error != nil {
+			WriteError("Erro ao atualizar os parâmetros na tabela hist_transactions: ", result.Error, basecoin)
+			return
+		}
+		break
 	}
 }
 
@@ -213,7 +234,7 @@ func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
 }
 
 func contagemRows(basecoin, started string) int {
-	query := "SELECT COUNT(*) FROM " + config.TabelaHist + " WHERE coin = ? AND started_at = ?"
+	query := "SELECT COUNT(*) FROM " + config.TabelaHist + " WHERE coin = ? AND date_tg = ?"
 
 	var count int
 	result := database.DB.Raw(query, basecoin, started).Scan(&count)
