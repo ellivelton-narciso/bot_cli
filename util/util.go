@@ -167,6 +167,16 @@ func DefinirMargim(currentCoin, margim string) error {
 	return nil
 }
 
+func RegistroLogs(basecoin, motivoString, side string, alerta float64) {
+	config.ReadFile()
+	query := "INSERT INTO history_logs (hist_date, coin, motivo, alerta, side) VALUES (NOW(), ?, ?, ?, ?)"
+	result := database.DB.Exec(query, basecoin, motivoString, alerta, side)
+	if result.Error != nil {
+		WriteError("Erro ao inserir dados na tabela de historico de logs, motivo: ", result.Error, basecoin)
+		return
+	}
+}
+
 func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64) {
 	config.ReadFile()
 	basecoin := coin
