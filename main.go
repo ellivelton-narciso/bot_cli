@@ -38,7 +38,7 @@ func main() {
 		if control.Ativo == "A" {
 			bots = nil
 			if err := database.DB.Find(&bots).Error; err != nil {
-				log.Println("Erro ao buscar dados da tabela v_selected_orders:", err)
+				log.Println("Erro ao buscar dados da tabela "+config.ViewFiltro+":", err)
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -60,7 +60,7 @@ func main() {
 						return
 
 					} else if bot.Tend == "LONG" {
-						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, config.Value, config.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
+						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
 						return
 					}
 				}(bot)
