@@ -211,6 +211,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
 					}
 					if start.Sub(date) >= 45*time.Second {
+						util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
 						util.RegistroLogs(currentCoin, "Preço de entrada pior 0.2% e ja passou 45s", side, tipoAlerta)
 						time.Sleep(2 * time.Minute)
 						return
@@ -327,6 +328,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 						util.WriteError("Erro ao converter data vinda do telegram: ", errDate, currentCoin)
 					}
 					if start.Sub(date) >= 45*time.Second {
+						util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
 						util.RegistroLogs(currentCoin, "Preço de entrada pior 0.2% e ja passou 45s", side, tipoAlerta)
 						time.Sleep(2 * time.Minute)
 						return
