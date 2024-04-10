@@ -18,6 +18,10 @@ func main() {
 	if config.ApiKey == "" || config.SecretKey == "" || config.BaseURL == "" {
 		log.Panic("Arquivo user.json incompleto.")
 	}
+	deleteQry := "DELETE FROM " + config.Tabela
+	if err := database.DB.Exec(deleteQry).Error; err != nil {
+		log.Println("Erro ao limpar tabela bots", err)
+	}
 
 	for {
 		bots = nil
