@@ -74,6 +74,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 		side = "SELL"
 	}
 	tg := util.BuscarValoresTelegram(currentCoin)
+	criar_ordem.EnviarCoinDB(currentCoin)
 	if len(tg) == 0 {
 		util.Write("Erro ao fazer busca do telegram.", currentCoin)
 		err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
@@ -88,19 +89,33 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 	stop = (stop * alavancagem) + (fee * 2)
 	takeprofit = (takeprofit * alavancagem) - (fee * 2)
 
-	err = util.DefinirAlavancagem(currentCoin, alavancagem)
-	if err != nil {
-		if !config.Development {
+	if !config.Development {
+		err = util.DefinirAlavancagem(currentCoin, alavancagem)
+		if err != nil {
+			err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
+			if err != nil {
+				msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
+				util.WriteError(msgErr, err, currentCoin)
+				fmt.Println(msgErr, err)
+				return
+			}
+			return
+
+		}
+
+		err = util.DefinirMargim(currentCoin, "ISOLATED")
+		if err != nil {
+			err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
+			if err != nil {
+				msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
+				util.WriteError(msgErr, err, currentCoin)
+				fmt.Println(msgErr, err)
+				return
+			}
 			return
 		}
 	}
-	err = util.DefinirMargim(currentCoin, "ISOLATED")
-	if err != nil {
-		if !config.Development {
-			return
-		}
-	}
-	criar_ordem.EnviarCoinDB(currentCoin)
+
 	/*precision, err = util.GetPrecision(currentCoin)
 	if err != nil {
 		precision = 0
@@ -144,6 +159,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 	for {
 		if primeiraExec {
 			time.Sleep(500 * time.Millisecond)
+			primeiraExec = false
 			if !config.Development {
 				allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 				if err != nil {
@@ -155,16 +171,13 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
 					if entryPriceFloat > 0 {
 						util.Write("Ja possui ordem ativa.", currentCoin)
-						util.RegistroLogs(currentCoin, "Ja possui ordem ativa.", side, tipoAlerta)
-
+						util.RegistroLogs(currentCoin, side, currentDateTelegram, 2)
 						ordemAtiva = true
 					}
 				}
 				if ordemAtiva {
 					return
 				}
-				primeiraExec = false
-			} else {
 				primeiraExec = false
 			}
 		}
@@ -212,7 +225,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					}
 					if start.Sub(date) >= 45*time.Second {
 						util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
-						util.RegistroLogs(currentCoin, "Preço de entrada pior 0.2% e ja passou 45s", side, tipoAlerta)
+						util.RegistroLogs(currentCoin, side, currentDateTelegram, 3)
 						time.Sleep(2 * time.Minute)
 						return
 					}
@@ -222,6 +235,11 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 				order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue), posSide)
 				if err != nil {
 					log.Println("Erro ao dar entrada m LONG: ", err)
+					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
+					if err != nil {
+						log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
+					}
+
 					if !config.Development {
 						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
 						if err != nil {
@@ -232,26 +250,12 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 							entryPriceFloat, _ := strconv.ParseFloat(item.EntryPrice, 64)
 							if entryPriceFloat > 0 {
 								util.Write("Ja possui ordem ativa.", currentCoin)
-								ordemAtiva = true
+
 							}
-						}
-						if !ordemAtiva {
-							err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
-							if err != nil {
-								log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
-								return
-							}
-							return
-						}
-						continue
-					} else {
-						err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
-						if err != nil {
-							log.Println("Não foi possível remover ", currentCoin, " da tabela bots")
-							return
 						}
 						return
 					}
+					return
 				}
 				if config.Development || order == 200 {
 					util.Write("Entrada em LONG: "+fmt.Sprint(valueCompradoCoin)+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
@@ -291,7 +295,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 
 				} else {
 					util.Write("A ordem de LONG não foi totalmente completada.", currentCoin)
-					util.RegistroLogs(currentCoin, "A ordem de LONG não foi totalmente completada.", side, tipoAlerta)
+					util.RegistroLogs(currentCoin, side, currentDateTelegram, 4)
 					ordemAtiva = false
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
 					if err != nil {
@@ -329,7 +333,7 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					}
 					if start.Sub(date) >= 45*time.Second {
 						util.Write("Preço de entrada pior 0.2% e ja passou 45s", currentCoin)
-						util.RegistroLogs(currentCoin, "Preço de entrada pior 0.2% e ja passou 45s", side, tipoAlerta)
+						util.RegistroLogs(currentCoin, side, currentDateTelegram, 2)
 						time.Sleep(2 * time.Minute)
 						return
 					}
@@ -411,9 +415,13 @@ func OdemExecucao(currentCoin, posSide string, value, alavancagem, stop, takepro
 					util.Write("Stop Loss Seguro foi criado.", currentCoin)
 
 				} else {
-					util.Write("A ordem de SHORT não foi totalmente completada. Irei voltar a buscar novas oportunidades. Pode a qualquer momento digitar SELL para entrar em SHORT.", currentCoin)
+					util.Write("A ordem de SHORT não foi totalmente completada.", currentCoin)
+					util.RegistroLogs(currentCoin, side, currentDateTelegram, 4)
 					ordemAtiva = false
-					util.RegistroLogs(currentCoin, "A ordem de SHORT não foi totalmente completada.", side, tipoAlerta)
+					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
+					if err != nil {
+						util.Write("Erro ao remover "+currentCoin+" do banco de dados", currentCoin)
+					}
 				}
 
 			}
