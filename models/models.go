@@ -106,6 +106,12 @@ type ResponseBookTicker struct {
 	LastUpdateID int64  `json:"lastUpdateId"`
 }
 
+type Control struct {
+	Valor       float64 `gorm:"valor" json:"valor"`
+	Alavancagem float64 `gorm:"alavancagem" json:"alavancagem"`
+	Ativo       string  `gorm:"ativo" json:"ativo"`
+}
+
 func (Historico) TableName() string {
 	return "historico"
 }
