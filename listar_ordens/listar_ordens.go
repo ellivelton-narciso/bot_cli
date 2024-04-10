@@ -23,7 +23,7 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 	apiParams := "symbol=" + coin + "" + "&timestamp=" + strconv.FormatInt(timestamp, 10)
 	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
 
-	url := config.BaseURL + "fapi/v1/positionRisk?" + apiParams + "&signature=" + signature
+	url := config.BaseURL + "fapi/v2/positionRisk?" + apiParams + "&signature=" + signature
 
 	req, _ := http.NewRequest("GET", url, nil)
 
@@ -47,7 +47,7 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 		return nil, err
 	}
 
-	return response, nil
+	return response, err
 
 }
 
