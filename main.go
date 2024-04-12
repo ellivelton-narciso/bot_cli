@@ -34,10 +34,11 @@ func main() {
 			control.Ativo = "A"
 			control.Valor = config.Value
 			control.Alavancagem = config.Alavancagem
+			control.Modo = "ISOLATED"
 		}
 		if control.Ativo == "A" {
 			bots = nil
-			if err := database.DB.Find(&bots).Error; err != nil {
+			if err := database.DB.Raw("SELECT * FROM " + config.ViewFiltro + " WHERE hist_date >= NOW() - INTERVAL 45 SECOND").Error; err != nil {
 				log.Println("Erro ao buscar dados da tabela "+config.ViewFiltro+":", err)
 				time.Sleep(5 * time.Second)
 				continue
@@ -45,6 +46,9 @@ func main() {
 			if len(bots) == 0 {
 				time.Sleep(1 * time.Second)
 				continue
+			}
+			if control.Modo != "ISOLATED" && control.Modo != "CROSSED" {
+				control.Modo = "ISOLATED"
 			}
 
 			for _, bot := range bots {
@@ -56,11 +60,11 @@ func main() {
 						bot.SP = -(bot.SP)
 					}
 					if bot.Tend == "SHORT" {
-						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
+						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
 						return
 
 					} else if bot.Tend == "LONG" {
-						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
+						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue)
 						return
 					}
 				}(bot)

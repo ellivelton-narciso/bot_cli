@@ -110,6 +110,8 @@ type Control struct {
 	Valor       float64 `gorm:"valor" json:"valor"`
 	Alavancagem float64 `gorm:"alavancagem" json:"alavancagem"`
 	Ativo       string  `gorm:"ativo" json:"ativo"`
+	Modo        string  `gorm:"modo" json:"modo"`
+	NumOrdem    int64   `gorm:"numOrdem" json:"numOrdem"`
 }
 
 func (Historico) TableName() string {
