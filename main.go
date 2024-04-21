@@ -38,7 +38,22 @@ func main() {
 		}
 		if control.Ativo == "A" {
 			bots = nil
-			if err := database.DB.Raw("SELECT * FROM " + config.ViewFiltro + " WHERE hist_date >= NOW() - INTERVAL 45 SECOND").Error; err != nil {
+			if err := database.DB.Raw(`
+				select
+					fh.hist_date AS hist_date,
+					fh.trading_name AS coin,
+					(CASE WHEN (fh.trend_value > 0) THEN 'LONG' ELSE 'SHORT' END) AS tend,
+					fh.curr_value AS curr_value,
+					fh.target_perc AS SP,
+					fh.target_perc AS SL,
+					fh.other_value AS other_value
+				from findings_history fh
+				where fh.other_value IN (20, 21)
+				  and fh.status = 'R'
+				  and fh.trading_name NOT IN (SELECT bots.coin FROM bots)
+				  and fh.hist_date > (NOW() - INTERVAL 2 MINUTE)
+				order by fh.hist_date desc
+			`).Scan(&bots).Error; err != nil {
 				log.Println("Erro ao buscar dados da tabela "+config.ViewFiltro+":", err)
 				time.Sleep(5 * time.Second)
 				continue
@@ -47,6 +62,7 @@ func main() {
 				time.Sleep(1 * time.Second)
 				continue
 			}
+			log.Println("Capturado, ", bots)
 			if control.Modo != "ISOLATED" && control.Modo != "CROSSED" {
 				control.Modo = "ISOLATED"
 			}
