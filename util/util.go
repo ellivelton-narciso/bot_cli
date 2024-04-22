@@ -247,7 +247,25 @@ func contagemRows(basecoin, started string) int {
 func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 	var bots []models.ResponseQuery
 
-	database.DB.Where("coin = ?", coin).First(&bots)
+	if err := database.DB.Raw(`
+		select
+			fh.hist_date AS hist_date,
+			fh.trading_name AS coin,
+			(CASE WHEN (fh.trend_value > 0) THEN 'LONG' ELSE 'SHORT' END) AS tend,
+			fh.curr_value AS curr_value,
+			fh.target_perc AS SP,
+			fh.target_perc AS SL,
+			fh.other_value AS other_value
+		from findings_history fh
+		where fh.other_value IN (20, 21)
+		 	 and fh.status = 'R'
+		  	and fh.trading_name NOT IN (SELECT bots.coin FROM bots)
+		  	and fh.hist_date > (NOW() - INTERVAL 2 MINUTE)
+			and fh.trading_name = ?
+		order by fh.hist_date desc
+	`, coin).Scan(&bots).Error; err != nil {
+		return []models.ResponseQuery{}
+	}
 
 	return bots
 
