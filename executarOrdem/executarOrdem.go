@@ -56,7 +56,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 
 	red = color.New(color.FgHiRed).SprintFunc()
 	green = color.New(color.FgGreen).SprintFunc()
-	fee := 0.05 * alavancagem
+	fee := (0.05 * 2) * alavancagem
 	ordemAtiva = false
 	primeiraExec = true
 	valueCompradoCoin = 0.0
