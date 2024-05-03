@@ -1,9 +1,6 @@
 package models
 
-import (
-	"binance_robot/config"
-	"time"
-)
+import "time"
 
 type ResponseOrderStruct struct {
 	OrderId                 int64  `json:"orderId"`
@@ -61,41 +58,6 @@ type DeleteResponse struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 }
-type Historico struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Value     string    `gorm:"column:value" json:"value"`
-	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
-}
-
-type Bots struct {
-	Coin string `json:"coin"`
-}
-
-type BotHistory struct {
-	AccountKey    string    `gorm:"column:account_key" json:"account_key"`
-	HistDate      time.Time `gorm:"column:hist_date" json:"hist_date"`
-	CurrValue     float64   `gorm:"column:curr_value" json:"curr_value"`
-	Command       string    `gorm:"column:command" json:"command"`
-	CommandParams string    `gorm:"column:commmand_params" json:"commmand_params"`
-	AccumRoi      float64   `gorm:"column:accum_roi" json:"accum_roi"`
-	TradingName   string    `gorm:"column:trading_name" json:"trading_name"`
-}
-
-type ResponseQuery struct {
-	HistDate   time.Time `gorm:"hist_date" json:"hist_date"`
-	Coin       string    `gorm:"coin" json:"coin"`
-	Tend       string    `gorm:"tend" json:"tend"`
-	CurrValue  float64   `gorm:"curr_value" json:"curr_value"`
-	SP         float64   `gorm:"SP" json:"SP"`
-	SL         float64   `gorm:"SL" json:"SL"`
-	OtherValue float64   `gorm:"other_value" json:"other_value"`
-}
-
-type HistoricoAll struct {
-	HistDate     time.Time `gorm:"column:hist_date" json:"hist_date"`
-	TradingName  string    `gorm:"column:trading_name" json:"trading_name"`
-	CurrentValue string    `gorm:"column:curr_value" json:"curr_value"`
-}
 
 type ResponseBookTicker struct {
 	Symbol       string `json:"symbol"`
@@ -106,30 +68,79 @@ type ResponseBookTicker struct {
 	LastUpdateID int64  `json:"lastUpdateId"`
 }
 
-type Control struct {
-	Valor       float64 `gorm:"valor" json:"valor"`
-	Alavancagem float64 `gorm:"alavancagem" json:"alavancagem"`
-	Ativo       string  `gorm:"ativo" json:"ativo"`
-	Modo        string  `gorm:"modo" json:"modo"`
-	NumOrdem    int64   `gorm:"numOrdem" json:"numOrdem"`
+type UserStruct struct {
+	ApiKey      string `json:"apiKey"`
+	SecretKey   string `json:"secretKey"`
+	BaseURL     string `json:"baseURL"`
+	Development bool   `json:"development"`
+	Host        string `json:"host"`
+	User        string `json:"user"`
+	Pass        string `json:"pass"`
+	Port        string `json:"port"`
+	Dbname      string `json:"dbname"`
+	TabelaHist  string `json:"tabelaHist"`
+	AlertasDisc string `json:"alertasDisc"`
+	WakeUp      int    `json:"wakeUp"`
+	Sleep       int    `json:"sleep"`
+	Meta        bool   `json:"meta"`
+}
+type Candle struct {
+	Open  float64 `gorm:"open" json:"open"`
+	High  float64 `gorm:"high" json:"high"`
+	Low   float64 `gorm:"low" json:"low"`
+	Close float64 `gorm:"close" json:"close"`
 }
 
-func (Historico) TableName() string {
-	return "historico"
+type Historico struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Value     string    `gorm:"column:value" json:"value"`
+	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
 }
 
-func (BotHistory) TableName() string {
-	return "bot_history"
+type HistoricoAll struct {
+	HistDate     time.Time `gorm:"column:hist_date" json:"hist_date"`
+	TradingName  string    `gorm:"column:trading_name" json:"trading_name"`
+	CurrentValue string    `gorm:"column:curr_value" json:"curr_value"`
 }
 
-func (ResponseQuery) TableName() string {
-	config.ReadFile()
-	return config.ViewFiltro
+type Bots struct {
+	Symbol string `gorm:"symbol" json:"symbol"`
+	User   string `gorm:"user" json:"user"`
+}
+type HookAlerts struct {
+	User      string `gorm:"column:user" json:"user"`
+	Symbol    string `gorm:"column:symbol" json:"symbol"`
+	Side      string `gorm:"column:side" json:"side"`
+	CreatedAt string `gorm:"column:created_at" json:"created_at"`
 }
 
+type ListBots struct {
+	Symbol string `gorm:"symbol" json:"symbol"`
+}
+type KlineData struct {
+	OpenTime                 int64   `json:"openTime"`
+	Open                     float64 `json:"open"`
+	High                     float64 `json:"high"`
+	Low                      float64 `json:"low"`
+	Close                    float64 `json:"close"`
+	Volume                   float64 `json:"volume"`
+	CloseTime                int64   `json:"closeTime"`
+	QuoteAssetVolume         float64 `json:"quoteAssetVolume,string"`
+	NumberOfTrades           int     `json:"numberOfTrades"`
+	TakerBuyBaseAssetVolume  float64 `json:"takerBuyBaseAssetVolume,string"`
+	TakerBuyQuoteAssetVolume float64 `json:"takerBuyQuoteAssetVolume,string"`
+}
+
+type VolumeData struct {
+	Volume      float64 `json:"volume"`
+	BuyVolume   float64 `json:"buyVolume"`
+	SellVolume  float64 `json:"sellVolume"`
+	RatioVolume float64 `json:"ratioVolume"`
+}
+
+func (Historico) TableName() string    { return "historico" }
 func (HistoricoAll) TableName() string { return "hist_trading_values" }
 
-func (Bots) TableName() string {
-	config.ReadFile()
-	return config.Tabela
-}
+func (ListBots) TableName() string { return "bots" }
+
+func (HookAlerts) TableName() string { return "alerts" }

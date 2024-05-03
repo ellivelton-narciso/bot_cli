@@ -1,7 +1,8 @@
 package database
 
 import (
-	"binance_robot/config"
+	"candles/config"
+	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -14,7 +15,7 @@ var (
 )
 
 func DBCon() {
-	//fmt.Println("\nConectando ao MySQL...")
+	fmt.Println("\nConectando ao MySQL...")
 	config.ReadFile()
 	con := config.User + ":" + config.Pass + "@tcp(" + config.Host + ":" + config.Port + ")/" + config.DBname + "?charset=utf8mb4&parseTime=True&loc=Local"
 	var err error
@@ -25,7 +26,7 @@ func DBCon() {
 		log.Panic("Erro ao conectar com o banco de dados.")
 	}
 
-	//fmt.Println("Conexão com MySQL efetuada com sucesso!")
+	fmt.Println("Conexão com MySQL efetuada com sucesso!")
 }
 
 func GetDatabase() *gorm.DB {

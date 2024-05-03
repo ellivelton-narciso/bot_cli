@@ -1,6 +1,6 @@
-/config.json.bkp
-.idea/*
-build/
-config.json
-user.json
+.idea/
 *.sql
+*.erd
+*.json
+*.bkp
+build/
