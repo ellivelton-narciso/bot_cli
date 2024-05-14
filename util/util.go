@@ -27,6 +27,7 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 	priceResp = listar_ordens.ListarUltimosValoresReais(coin, 1)
 
 	if len(priceResp) == 0 {
+		Write("Erro ao listar ultimos valores", coin)
 		return 0, 0
 	}
 
@@ -51,7 +52,7 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 
 	q := value / price
 	quantity := math.Round(q*math.Pow(10, float64(precision))) / math.Pow(10, float64(precision))
-
+	Write("Quantidade: "+fmt.Sprintf("%.4f", quantity)+" - Preço: "+fmt.Sprintf("%.4f", price), coin)
 	return quantity, price
 }
 
@@ -257,7 +258,7 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 			fh.target_perc AS SL,
 			fh.other_value AS other_value
 		from findings_history fh
-		where fh.other_value IN (20, 21)
+		where fh.other_value IN (31, 51)
 		 	 and fh.status = 'R'
 		  	and fh.trading_name NOT IN (SELECT bots.coin FROM bots)
 		  	and fh.hist_date > (NOW() - INTERVAL 2 MINUTE)
@@ -300,6 +301,42 @@ func GetPrecision(currentCoin string) (int, error) {
 		return 0, err
 	}
 	parts := strings.Split(response.BidQty, ".")
+	if len(parts) == 1 {
+		return 0, nil
+	}
+	precision := len(parts[1])
+	return precision, nil
+}
+
+func GetPrecisionSymbol(currentCoin string) (int, error) {
+	url := "https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
+	Write(string(body), currentCoin)
+
+	var response models.ResponseBookTicker
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return 0, err
+	}
+	parts := strings.Split(response.BidPrice, ".")
 	if len(parts) == 1 {
 		return 0, nil
 	}

@@ -6,9 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io/ioutil"
-	"os"
 )
 
 type UserStruct struct {
@@ -16,10 +14,14 @@ type UserStruct struct {
 	SecretKey   string  `json:"secretKey"`
 	BaseURL     string  `json:"baseURL"`
 	Development bool    `json:"development"`
+	Host        string  `json:"host"`
+	User        string  `json:"user"`
+	Pass        string  `json:"pass"`
+	Port        string  `json:"port"`
+	Dbname      string  `json:"dbname"`
 	Value       float64 `json:"value"`
 	Alavancagem float64 `json:"alavancagem"`
 	Tabela      string  `json:"tabela"`
-	ViewFiltro  string  `json:"viewFiltro"`
 	TabelaHist  string  `json:"tabelaHist"`
 }
 
@@ -36,23 +38,17 @@ var (
 	Value       float64
 	Alavancagem float64
 	Tabela      string
-	ViewFiltro  string
 	TabelaHist  string
 	UserConfig  UserStruct
 )
 
 func ReadFile() {
-	user, err := ioutil.ReadFile("user.json")
+	user, err := ioutil.ReadFile("config.json")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	err = json.Unmarshal(user, &UserConfig)
-
-	err = godotenv.Load(".env")
-	if err != nil {
-		fmt.Println(err)
-	}
 
 	ApiKey = UserConfig.ApiKey
 	SecretKey = UserConfig.SecretKey
@@ -61,13 +57,12 @@ func ReadFile() {
 	Value = UserConfig.Value
 	Alavancagem = UserConfig.Alavancagem
 	Tabela = UserConfig.Tabela
-	ViewFiltro = UserConfig.ViewFiltro
 	TabelaHist = UserConfig.TabelaHist
-	Host = os.Getenv("HOST")
-	User = os.Getenv("USER")
-	Pass = os.Getenv("PASS")
-	Port = os.Getenv("PORT")
-	DBname = os.Getenv("DBNAME")
+	Host = UserConfig.Host
+	User = UserConfig.User
+	Pass = UserConfig.Pass
+	Port = UserConfig.Port
+	DBname = UserConfig.Dbname
 
 }
 

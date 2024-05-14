@@ -122,11 +122,6 @@ func (BotHistory) TableName() string {
 	return "bot_history"
 }
 
-func (ResponseQuery) TableName() string {
-	config.ReadFile()
-	return config.ViewFiltro
-}
-
 func (HistoricoAll) TableName() string { return "hist_trading_values" }
 
 func (Bots) TableName() string {

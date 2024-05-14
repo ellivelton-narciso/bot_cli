@@ -82,68 +82,78 @@ func RemoverCoinDB(coin string, tempo time.Duration) error {
 func CriarSLSeguro(coin, side, stop, posSide string) (int, string, error) {
 	config.ReadFile()
 
-	now := time.Now()
-	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "&type=STOP_MARKET&side=" + side + "&positionSide=" + posSide + "&closePosition=true&stopPrice=" + stop + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+	if !config.Development {
+		now := time.Now()
+		timestamp := now.UnixMilli()
+		apiParamsOrdem := "symbol=" + coin + "&type=STOP_MARKET&side=" + side + "&positionSide=" + posSide + "&closePosition=true&stopPrice=" + stop + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+		signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
-	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
+		urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
 
-	req, err := http.NewRequest("POST", urlOrdem, nil)
-	if err != nil {
-		return 500, "", err
-	}
+		req, err := http.NewRequest("POST", urlOrdem, nil)
+		if err != nil {
+			return 500, "", err
+		}
 
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("X-MBX-APIKEY", config.ApiKey)
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 500, "", err
-	}
-	defer res.Body.Close()
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return 500, "", err
+		}
+		defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return 500, string(body), err
-	}
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return 500, string(body), err
+		}
 
-	if res.StatusCode != 200 {
+		if res.StatusCode != 200 {
+			return res.StatusCode, string(body), nil
+		}
+		//fmt.Println(string(body))
+		//fmt.Println(res.StatusCode)
+
+		var response models.ResponseOrderStruct
+		err = json.Unmarshal(body, &response)
+		if err != nil {
+			return 500, string(body), err
+		}
 		return res.StatusCode, string(body), nil
+	} else {
+		return 200, "", nil
 	}
-	//fmt.Println(string(body))
-	//fmt.Println(res.StatusCode)
-
-	var response models.ResponseOrderStruct
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return 500, string(body), err
-	}
-	return res.StatusCode, string(body), nil
 }
 
 func CancelarSLSeguro(coin string) (int, error) {
-	now := time.Now()
-	timestamp := now.UnixMilli()
-	apiParamsOrdem := "symbol=" + coin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+	config.ReadFile()
 
-	urlOrdem := config.BaseURL + "fapi/v1/allOpenOrders?" + apiParamsOrdem + "&signature=" + signatureOrdem
-	req, err := http.NewRequest("DELETE", urlOrdem, nil)
-	if err != nil {
-		return 500, err
-	}
+	if !config.Development {
+		now := time.Now()
+		timestamp := now.UnixMilli()
+		apiParamsOrdem := "symbol=" + coin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
+		signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
 
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+		urlOrdem := config.BaseURL + "fapi/v1/allOpenOrders?" + apiParamsOrdem + "&signature=" + signatureOrdem
+		req, err := http.NewRequest("DELETE", urlOrdem, nil)
+		if err != nil {
+			return 500, err
+		}
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 500, err
-	}
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("X-MBX-APIKEY", config.ApiKey)
 
-	if res.StatusCode != 200 {
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return 500, err
+		}
+
+		if res.StatusCode != 200 {
+			return res.StatusCode, nil
+		}
 		return res.StatusCode, nil
+	} else {
+		return 200, nil
 	}
-	return res.StatusCode, nil
 }
