@@ -260,7 +260,7 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 		from findings_history fh
 		where fh.other_value IN (31, 51)
 		 	 and fh.status = 'R'
-		  	and fh.trading_name NOT IN (SELECT bots.coin FROM bots)
+		  	and fh.trading_name NOT IN (SELECT bots_real.coin FROM bots_real)
 		  	and fh.hist_date > (NOW() - INTERVAL 2 MINUTE)
 			and fh.trading_name = ?
 		order by fh.hist_date desc
