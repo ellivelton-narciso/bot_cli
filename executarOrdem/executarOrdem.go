@@ -71,19 +71,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	if posSide == "SHORT" {
 		side = "SELL"
 	}
-	tg := util.BuscarValoresTelegram(currentCoin)
 	criar_ordem.EnviarCoinDB(currentCoin)
-	if len(tg) == 0 {
-		util.Write("Erro ao fazer busca do telegram.", currentCoin)
-		err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
-		if err != nil {
-			util.Write("Erro ao remover "+currentCoin+" do banco de dados", currentCoin)
-			return
-		}
-		return
-	}
-	currValueTelegram = tg[0].CurrValue
-	currentDateTelegram = tg[0].HistDate.Format("2006-01-02 15:04:05")
 	stop = (stop * alavancagem) + (fee * 2)
 	takeprofit = (takeprofit * alavancagem) - (fee * 2)
 
