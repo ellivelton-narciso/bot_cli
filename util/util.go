@@ -21,17 +21,17 @@ import (
 )
 
 func ConvertBaseCoin(coin string, value float64) (float64, float64) {
-	var priceResp []models.PriceResponse
+	var priceResp []models.HistoricoAll
 	config.ReadFile()
 
-	priceResp = listar_ordens.ListarUltimosValoresReais(coin, 1)
+	priceResp, _ = listar_ordens.ListarUltimosValores(coin, 1)
 
 	if len(priceResp) == 0 {
 		Write("Erro ao listar ultimos valores", coin)
 		return 0, 0
 	}
 
-	price, err := strconv.ParseFloat(priceResp[0].Price, 64)
+	price, err := strconv.ParseFloat(priceResp[0].CurrentValue, 64)
 	if err != nil {
 		WriteError("Erro ao converter preço para float64: ", err, coin)
 	}
@@ -40,14 +40,6 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 	if err != nil {
 		precision = 0
 		WriteError("Erro ao buscar precisao para converter a moeda: ", err, coin)
-	}
-
-	if coin == "BTCUSDT" || coin == "ETHUSDT" || coin == "YFIUSDT" {
-		precision = 3
-	} else if coin == "BNBUSDT" {
-		precision = 2
-	} else if coin == "BSVUSDT" || coin == "ARUSDT" || price > 10 {
-		precision = 1
 	}
 
 	q := value / price
