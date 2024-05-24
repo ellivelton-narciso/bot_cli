@@ -363,3 +363,36 @@ func GetPrecisionSymbol(currentCoin, apiKey string) (int, error) {
 	precision := len(parts[1])
 	return precision, nil
 }
+
+func SendMessageToDiscord(message, url string) error {
+	config.ReadFile()
+	if url != "" {
+		method := "POST"
+
+		payload := strings.NewReader(fmt.Sprintf(`{
+        	"content": "%s"
+    	}`, message))
+
+		client := &http.Client{}
+		req, err := http.NewRequest(method, url, payload)
+
+		if err != nil {
+			return err
+		}
+		req.Header.Add("Content-Type", "application/json")
+
+		res, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		_, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+	return nil
+}
