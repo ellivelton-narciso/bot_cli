@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey string) {
+func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey string, enviarDB bool) {
 
 	var (
 		currentPrice        float64
@@ -71,19 +71,23 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	if posSide == "SHORT" {
 		side = "SELL"
 	}
-	criar_ordem.EnviarCoinDB(currentCoin)
+	if enviarDB {
+		criar_ordem.EnviarCoinDB(currentCoin)
+	}
 	stop = (stop * alavancagem) + (fee * 2)
 	takeprofit = (takeprofit * alavancagem) - (fee * 2)
 
 	if !config.Development {
 		err = util.DefinirAlavancagem(currentCoin, alavancagem, apiKey, secretKey)
 		if err != nil {
-			err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
-			if err != nil {
-				msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
-				util.WriteError(msgErr, err, currentCoin)
-				fmt.Println(msgErr, err)
-				return
+			if enviarDB {
+				err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
+				if err != nil {
+					msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
+					util.WriteError(msgErr, err, currentCoin)
+					fmt.Println(msgErr, err)
+					return
+				}
 			}
 			return
 
@@ -91,12 +95,14 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 
 		err = util.DefinirMargim(currentCoin, modo, apiKey, secretKey)
 		if err != nil {
-			err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
-			if err != nil {
-				msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
-				util.WriteError(msgErr, err, currentCoin)
-				fmt.Println(msgErr, err)
-				return
+			if enviarDB {
+				err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
+				if err != nil {
+					msgErr := "Erro ao remover " + currentCoin + " do banco de dados: "
+					util.WriteError(msgErr, err, currentCoin)
+					fmt.Println(msgErr, err)
+					return
+				}
 			}
 			return
 		}
@@ -118,7 +124,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 		if ordemAtiva {
 			msg := fmt.Sprintf("Sinal capturado: %v", sig)
 
-			order := encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+			order := encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 			time.Sleep(5 * time.Second)
 			if config.Development || order == 200 {
 				util.Write(msg+" . Ordem encerrada: "+currentCoin, currentCoin)
@@ -403,7 +409,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				} else {
 					roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 				}
-				order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+				order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 				if config.Development || order == 200 {
 					util.Write("Ordem encerrada. Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 					util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -455,7 +461,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						}
-						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 						if config.Development || order == 200 {
 							util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -493,7 +499,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -518,7 +524,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 				}
 				if ROI > 0 && now.Sub(start) >= 2*time.Hour {
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -565,7 +571,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						}
-						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 						if config.Development || order == 200 {
 							util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -604,7 +610,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -635,7 +641,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 				}
 				if ROI > 0 && now.Sub(start) >= 2*time.Hour {
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
@@ -672,7 +678,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	}
 }
 
-func encerrarOrdem(currentCoin, side, posSide string, currentValue float64, apiKey, secretKey string) int {
+func encerrarOrdem(currentCoin, side, posSide string, currentValue float64, apiKey, secretKey string, enviarDB bool) int {
 
 	if !config.Development {
 		// Valida se a ordem ja foi encerrada para evitar abrir ordem no sentido contrário.
@@ -699,7 +705,12 @@ func encerrarOrdem(currentCoin, side, posSide string, currentValue float64, apiK
 	}
 	order, err := criar_ordem.CriarOrdem(currentCoin, opposSide, fmt.Sprint(currentValue), posSide, apiKey, secretKey)
 	if err != nil {
-		_ = criar_ordem.RemoverCoinDB(currentCoin, 3*time.Minute)
+		if enviarDB {
+			err = criar_ordem.RemoverCoinDB(currentCoin, 3*time.Minute)
+			if err != nil {
+				util.WriteError("Erro ao remover coin da Tabela, ", err, currentCoin)
+			}
+		}
 		return 0
 	}
 
