@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
+func ListarOrdens(coin, apiKey, secretKey string) ([]models.CryptoPosition, error) {
 
 	config.ReadFile()
 
@@ -21,14 +21,14 @@ func ListarOrdens(coin string) ([]models.CryptoPosition, error) {
 	timestamp := now.UnixMilli()
 
 	apiParams := "symbol=" + coin + "" + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
+	signature := config.ComputeHmacSha256(secretKey, apiParams)
 
 	url := config.BaseURL + "fapi/v2/positionRisk?" + apiParams + "&signature=" + signature
 
 	req, _ := http.NewRequest("GET", url, nil)
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+	req.Header.Add("X-MBX-APIKEY", apiKey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

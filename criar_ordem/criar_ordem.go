@@ -13,12 +13,12 @@ import (
 	"time"
 )
 
-func CriarOrdem(coin, side, quantity, posSide string) (int, error) {
+func CriarOrdem(coin, side, quantity, posSide, apiKey, secretKey string) (int, error) {
 	config.ReadFile()
 	now := time.Now()
 	timestamp := now.UnixMilli()
 	apiParamsOrdem := "symbol=" + coin + "&type=MARKET&side=" + side + "&positionSide=" + posSide + "&quantity=" + quantity + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+	signatureOrdem := config.ComputeHmacSha256(secretKey, apiParamsOrdem)
 
 	urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
 
@@ -28,7 +28,7 @@ func CriarOrdem(coin, side, quantity, posSide string) (int, error) {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+	req.Header.Add("X-MBX-APIKEY", apiKey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -79,14 +79,14 @@ func RemoverCoinDB(coin string, tempo time.Duration) error {
 	return nil
 }
 
-func CriarSLSeguro(coin, side, stop, posSide string) (int, string, error) {
+func CriarSLSeguro(coin, side, stop, posSide, apiKey, secretKey string) (int, string, error) {
 	config.ReadFile()
 
 	if !config.Development {
 		now := time.Now()
 		timestamp := now.UnixMilli()
 		apiParamsOrdem := "symbol=" + coin + "&type=STOP_MARKET&side=" + side + "&positionSide=" + posSide + "&closePosition=true&stopPrice=" + stop + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-		signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+		signatureOrdem := config.ComputeHmacSha256(secretKey, apiParamsOrdem)
 
 		urlOrdem := config.BaseURL + "fapi/v1/order?" + apiParamsOrdem + "&signature=" + signatureOrdem
 
@@ -96,7 +96,7 @@ func CriarSLSeguro(coin, side, stop, posSide string) (int, string, error) {
 		}
 
 		req.Header.Add("Content-Type", "application/json")
-		req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+		req.Header.Add("X-MBX-APIKEY", apiKey)
 
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -126,14 +126,14 @@ func CriarSLSeguro(coin, side, stop, posSide string) (int, string, error) {
 	}
 }
 
-func CancelarSLSeguro(coin string) (int, error) {
+func CancelarSLSeguro(coin, apiKey, secretKey string) (int, error) {
 	config.ReadFile()
 
 	if !config.Development {
 		now := time.Now()
 		timestamp := now.UnixMilli()
 		apiParamsOrdem := "symbol=" + coin + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-		signatureOrdem := config.ComputeHmacSha256(config.SecretKey, apiParamsOrdem)
+		signatureOrdem := config.ComputeHmacSha256(secretKey, apiParamsOrdem)
 
 		urlOrdem := config.BaseURL + "fapi/v1/allOpenOrders?" + apiParamsOrdem + "&signature=" + signatureOrdem
 		req, err := http.NewRequest("DELETE", urlOrdem, nil)
@@ -142,7 +142,7 @@ func CancelarSLSeguro(coin string) (int, error) {
 		}
 
 		req.Header.Add("Content-Type", "application/json")
-		req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+		req.Header.Add("X-MBX-APIKEY", apiKey)
 
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {

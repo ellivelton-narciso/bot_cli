@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-func ConvertBaseCoin(coin string, value float64) (float64, float64) {
+func ConvertBaseCoin(coin string, value float64, apiKey string) (float64, float64) {
 	var priceResp []models.HistoricoAll
 	config.ReadFile()
 
@@ -36,7 +36,7 @@ func ConvertBaseCoin(coin string, value float64) (float64, float64) {
 		WriteError("Erro ao converter preço para float64: ", err, coin)
 	}
 
-	precision, err := GetPrecision(coin)
+	precision, err := GetPrecision(coin, apiKey)
 	if err != nil {
 		precision = 0
 		WriteError("Erro ao buscar precisao para converter a moeda: ", err, coin)
@@ -96,11 +96,11 @@ func stripColor(message string) string {
 	return regex.ReplaceAllString(message, "")
 }
 
-func DefinirAlavancagem(currentCoin string, alavancagem float64) error {
+func DefinirAlavancagem(currentCoin string, alavancagem float64, apikey, secretKey string) error {
 	now := time.Now()
 	timestamp := now.UnixMilli()
 	apiParams := "symbol=" + currentCoin + "&leverage=" + fmt.Sprint(alavancagem) + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
+	signature := config.ComputeHmacSha256(secretKey, apiParams)
 	url := config.BaseURL + "fapi/v1/leverage?" + apiParams + "&signature=" + signature
 
 	req, err := http.NewRequest("POST", url, nil)
@@ -109,7 +109,7 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) error {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+	req.Header.Add("X-MBX-APIKEY", apikey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -128,12 +128,12 @@ func DefinirAlavancagem(currentCoin string, alavancagem float64) error {
 	return nil
 }
 
-func DefinirMargim(currentCoin, margim string) error {
+func DefinirMargim(currentCoin, margim, apiKey, secretKey string) error {
 	now := time.Now()
 	timestamp := now.UnixMilli()
 	margim = strings.ToUpper(margim)
 	apiParams := "symbol=" + currentCoin + "&marginType=" + margim + "&timestamp=" + strconv.FormatInt(timestamp, 10)
-	signature := config.ComputeHmacSha256(config.SecretKey, apiParams)
+	signature := config.ComputeHmacSha256(secretKey, apiParams)
 	url := config.BaseURL + "fapi/v1/marginType?" + apiParams + "&signature=" + signature
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -141,7 +141,7 @@ func DefinirMargim(currentCoin, margim string) error {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+	req.Header.Add("X-MBX-APIKEY", apiKey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -292,7 +292,7 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 
 }
 
-func GetPrecision(currentCoin string) (int, error) {
+func GetPrecision(currentCoin, apiKey string) (int, error) {
 	url := "https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -300,7 +300,7 @@ func GetPrecision(currentCoin string) (int, error) {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+	req.Header.Add("X-MBX-APIKEY", apiKey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -328,7 +328,7 @@ func GetPrecision(currentCoin string) (int, error) {
 	return precision, nil
 }
 
-func GetPrecisionSymbol(currentCoin string) (int, error) {
+func GetPrecisionSymbol(currentCoin, apiKey string) (int, error) {
 	url := "https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=" + currentCoin
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -336,7 +336,7 @@ func GetPrecisionSymbol(currentCoin string) (int, error) {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-MBX-APIKEY", config.ApiKey)
+	req.Header.Add("X-MBX-APIKEY", apiKey)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

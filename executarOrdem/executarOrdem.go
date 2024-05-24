@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64) {
+func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey string) {
 
 	var (
 		currentPrice        float64
@@ -76,7 +76,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	takeprofit = (takeprofit * alavancagem) - (fee * 2)
 
 	if !config.Development {
-		err = util.DefinirAlavancagem(currentCoin, alavancagem)
+		err = util.DefinirAlavancagem(currentCoin, alavancagem, apiKey, secretKey)
 		if err != nil {
 			err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
 			if err != nil {
@@ -89,7 +89,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 
 		}
 
-		err = util.DefinirMargim(currentCoin, modo)
+		err = util.DefinirMargim(currentCoin, modo, apiKey, secretKey)
 		if err != nil {
 			err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
 			if err != nil {
@@ -118,7 +118,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 		if ordemAtiva {
 			msg := fmt.Sprintf("Sinal capturado: %v", sig)
 
-			order := encerrarOrdem(currentCoin, side, posSide, currentValue)
+			order := encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 			time.Sleep(5 * time.Second)
 			if config.Development || order == 200 {
 				util.Write(msg+" . Ordem encerrada: "+currentCoin, currentCoin)
@@ -147,7 +147,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 			time.Sleep(500 * time.Millisecond)
 			primeiraExec = false
 			if !config.Development {
-				allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+				allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
 				if err != nil {
 					primeiraExec = true
 					util.WriteError("Erro ao listar ordens: ", err, currentCoin)
@@ -186,7 +186,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				start = time.Now()
 				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
 				started = timeValue.Format("2006-01-02 15:04:05")
-				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem, apiKey)
 				if currentValue == 0 || priceBuy == 0 {
 					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
@@ -197,7 +197,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					return
 				}
 				valueCompradoCoin = priceBuy
-				order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue), posSide)
+				order, err = criar_ordem.CriarOrdem(currentCoin, "BUY", fmt.Sprint(currentValue), posSide, apiKey, secretKey)
 				if err != nil {
 					log.Println("Erro ao dar entrada m LONG: ", err)
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
@@ -206,7 +206,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 
 					if !config.Development {
-						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+						allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
 						if err != nil {
 							util.WriteError("Erro ao listar ordens: ", err, currentCoin)
 							return
@@ -225,7 +225,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				if config.Development || order == 200 {
 					util.Write("Entrada em LONG: "+fmt.Sprint(valueCompradoCoin)+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
 					ordemAtiva = true
-					allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+					allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
 					if err != nil {
 						log.Println("Erro ao listar ordens: ", err)
 					}
@@ -244,10 +244,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					util.Historico(currentCoin, "BUY", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
 					forTime = 5 * time.Second
-					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin)
+					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin, apiKey)
 					q := valueCompradoCoin * (1 - (((stop / alavancagem) / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(precisionSymbol))) / math.Pow(10, float64(precisionSymbol))
-					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "SELL", fmt.Sprint(stopSeguro), posSide)
+					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "SELL", fmt.Sprint(stopSeguro), posSide, apiKey, secretKey)
 					if err != nil {
 						log.Println("Erro ao criar Stop Loss Seguro para, ", currentCoin, " motivo: ", err)
 						util.WriteError("Não foi criada ordem para STOPLOSS, motivo: ", err, currentCoin)
@@ -274,7 +274,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				start = time.Now()
 				timeValue := time.Unix(0, start.UnixMilli()*int64(time.Millisecond))
 				started = timeValue.Format("2006-01-02 15:04:05")
-				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem)
+				currentValue, priceBuy = util.ConvertBaseCoin(currentCoin, value*alavancagem, apiKey)
 				if currentValue == 0 || priceBuy == 0 {
 					util.Write("Valor atual ou Preço de compra é igual a 0", currentCoin)
 					err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
@@ -285,11 +285,11 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					return
 				}
 				valueCompradoCoin = priceBuy
-				order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), posSide)
+				order, err = criar_ordem.CriarOrdem(currentCoin, "SELL", fmt.Sprint(currentValue), posSide, apiKey, secretKey)
 				if err != nil {
 					log.Println("Erro ao dar entrada em SHORT: ", err)
 					if !config.Development {
-						allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+						allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
 						if err != nil {
 							util.WriteError("Erro ao listar ordens: ", err, currentCoin)
 							err = criar_ordem.RemoverCoinDB(currentCoin, 2*time.Second)
@@ -327,7 +327,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				if config.Development || order == 200 {
 					util.Write("Entrada em SHORT: "+fmt.Sprint(valueCompradoCoin)+", TP: "+fmt.Sprintf("%.4f", takeprofit)+", SL: "+fmt.Sprintf("%.4f", stop)+"ALERTA: "+fmt.Sprint(tipoAlerta), currentCoin)
 					ordemAtiva = true
-					allOrders, err = listar_ordens.ListarOrdens(currentCoin)
+					allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
 					if err != nil {
 						log.Println("Erro ao listar ordens: ", err)
 					}
@@ -346,10 +346,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					util.Historico(currentCoin, "SELL", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI)
 					forTime = 5 * time.Second
-					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin)
+					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin, apiKey)
 					q := valueCompradoCoin * (1 + (((stop / alavancagem) / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(precisionSymbol))) / math.Pow(10, float64(precisionSymbol))
-					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "BUY", fmt.Sprint(stopSeguro), posSide)
+					slSeguro, resposta, err = criar_ordem.CriarSLSeguro(currentCoin, "BUY", fmt.Sprint(stopSeguro), posSide, apiKey, secretKey)
 					if err != nil {
 						log.Println("Erro ao criar Stop Loss Seguro para, ", currentCoin, " motivo: ", err)
 						util.WriteError("Não foi criada ordem para STOPLOSS, motivo: ", err, currentCoin)
@@ -403,7 +403,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				} else {
 					roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 				}
-				order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+				order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 				if config.Development || order == 200 {
 					util.Write("Ordem encerrada. Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 					util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -418,7 +418,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					return
 				} else {
 					util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-					_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+					_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 					if err != nil {
 						msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 						fmt.Println(msgError)
@@ -455,7 +455,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						}
-						order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 						if config.Development || order == 200 {
 							util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -470,7 +470,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 							return
 						} else {
 							util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-							_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+							_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 							if err != nil {
 								msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 								fmt.Println(msgError)
@@ -493,7 +493,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 					if config.Development || order == 200 {
 						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -508,7 +508,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-						_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+						_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 						if err != nil {
 							msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 							fmt.Println(msgError)
@@ -518,7 +518,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 				}
 				if ROI > 0 && now.Sub(start) >= 2*time.Hour {
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 					if config.Development || order == 200 {
 						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -533,7 +533,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-						_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+						_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 						if err != nil {
 							msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 							fmt.Println(msgError)
@@ -565,7 +565,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						}
-						order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 						if config.Development || order == 200 {
 							util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 							util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -581,7 +581,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 							return
 						} else {
 							util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-							_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+							_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 							if err != nil {
 								msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 								fmt.Println(msgError)
@@ -604,7 +604,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 					if config.Development || order == 200 {
 						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
@@ -619,7 +619,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-						_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+						_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 						if err != nil {
 							msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 							fmt.Println(msgError)
@@ -635,7 +635,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 				}
 				if ROI > 0 && now.Sub(start) >= 2*time.Hour {
-					order = encerrarOrdem(currentCoin, side, posSide, currentValue)
+					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey)
 					if config.Development || order == 200 {
 						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
@@ -650,7 +650,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					} else {
 						util.Write("Erro ao fechar a ordem, encerre manualmente pela binance: "+fmt.Sprint(order), currentCoin)
-						_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+						_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 						if err != nil {
 							msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 							fmt.Println(msgError)
@@ -672,11 +672,11 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	}
 }
 
-func encerrarOrdem(currentCoin, side, posSide string, currentValue float64) int {
+func encerrarOrdem(currentCoin, side, posSide string, currentValue float64, apiKey, secretKey string) int {
 
 	if !config.Development {
 		// Valida se a ordem ja foi encerrada para evitar abrir ordem no sentido contrário.
-		all, err := listar_ordens.ListarOrdens(currentCoin)
+		all, err := listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
 		if err != nil {
 			log.Println("Erro ao listar ordens: ", err)
 		}
@@ -697,14 +697,14 @@ func encerrarOrdem(currentCoin, side, posSide string, currentValue float64) int 
 	} else if side == "SELL" {
 		opposSide = "BUY"
 	}
-	order, err := criar_ordem.CriarOrdem(currentCoin, opposSide, fmt.Sprint(currentValue), posSide)
+	order, err := criar_ordem.CriarOrdem(currentCoin, opposSide, fmt.Sprint(currentValue), posSide, apiKey, secretKey)
 	if err != nil {
 		_ = criar_ordem.RemoverCoinDB(currentCoin, 3*time.Minute)
 		return 0
 	}
 
 	// Cancela o StopLoss Seguro que foi criado.
-	_, err = criar_ordem.CancelarSLSeguro(currentCoin)
+	_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
 	if err != nil {
 		msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
 		fmt.Println(msgError)
