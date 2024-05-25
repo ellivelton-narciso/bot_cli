@@ -82,13 +82,13 @@ type BotHistory struct {
 }
 
 type ResponseQuery struct {
-	HistDate   time.Time `gorm:"hist_date" json:"hist_date"`
-	Coin       string    `gorm:"coin" json:"coin"`
-	Tend       string    `gorm:"tend" json:"tend"`
-	CurrValue  float64   `gorm:"curr_value" json:"curr_value"`
-	SP         float64   `gorm:"SP" json:"SP"`
-	SL         float64   `gorm:"SL" json:"SL"`
-	OtherValue float64   `gorm:"other_value" json:"other_value"`
+	HistDate   string  `gorm:"hist_date" json:"hist_date"`
+	Coin       string  `gorm:"coin" json:"coin"`
+	Tend       string  `gorm:"tend" json:"tend"`
+	CurrValue  float64 `gorm:"curr_value" json:"curr_value"`
+	SP         float64 `gorm:"SP" json:"SP"`
+	SL         float64 `gorm:"SL" json:"SL"`
+	OtherValue float64 `gorm:"other_value" json:"other_value"`
 }
 
 type HistoricoAll struct {
