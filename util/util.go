@@ -407,14 +407,14 @@ func SendMessageToDiscord(message, url string) error {
 	return nil
 }
 
-func GetStop(symbol, start string) bool {
+func GetStop(symbol, start string, tipoAlerta float64) bool {
 	var count int64
 	if err := database.DB.Raw(`
 		SELECT COUNT(*)
 		FROM findings_history fh
-		WHERE fh.other_value = 218
-		  AND fh.status = 'S' AND fh.trading_name = ? AND fh.hist_date = ?
-	`, symbol, start).Scan(&count).Error; err != nil {
+		WHERE fh.other_value ?
+		  AND fh.status IN ('S', 'L', 'W') AND fh.trading_name = ? AND fh.hist_date = ?
+	`, symbol, start, tipoAlerta).Scan(&count).Error; err != nil {
 		log.Println("Erro ao buscar dados da query GetStop():", err)
 		return false
 	}

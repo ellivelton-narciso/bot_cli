@@ -46,10 +46,11 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 		currentDateTelegram string
 		resposta            string
 		//precision           int
-		forTime     time.Duration
-		priceBuy    float64
-		side        string
-		posSideText string
+		forTime       time.Duration
+		priceBuy      float64
+		side          string
+		posSideText   string
+		ultimosSaidaR []models.PriceResponse
 	)
 
 	red = color.New(color.FgHiRed).SprintFunc()
@@ -59,7 +60,7 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 	primeiraExec = true
 	valueCompradoCoin = 0.0
 	roiAcumulado = 0.0
-	forTime = 900 * time.Millisecond
+	forTime = 2 * time.Second
 	roiMaximo = 0
 
 	side = strings.ToUpper(side)
@@ -148,7 +149,7 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 
 	for {
 		if primeiraExec {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1500 * time.Millisecond)
 			primeiraExec = false
 			if !config.Development {
 				allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
@@ -375,6 +376,14 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 
 			}
 		} else { // Já possui uma ordem ativa
+			ultimosSaidaR = listar_ordens.ListarUltimosValoresReais(currentCoin, 1)
+			currentPrice, err = strconv.ParseFloat(ultimosSaidaR[0].Price, 64)
+			if err != nil {
+				util.WriteError("Erro no array currentPrice: ", err, currentCoin)
+				continue
+			}
+			currentPriceStr = fmt.Sprint(currentPrice)
+
 			now = time.Now()
 			timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
 			formattedTime := timeValue.Format("2006-01-02 15:04:05")
@@ -397,7 +406,7 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 			}
 			util.Write("Valor de entrada ("+posSideText+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-			if util.GetStop(currentCoin, startTB) {
+			if util.GetStop(currentCoin, startTB, tipoAlerta) {
 				util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 
 				roiAcumulado = roiAcumulado + ROI

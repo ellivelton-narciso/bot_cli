@@ -67,11 +67,11 @@ func ListarUltimosValores(coin string, count int64) ([]models.HistoricoAll, erro
 	return historicos, nil
 }
 
-func ListarUltimosValoresReais(coin string, count int64) []models.PriceResponse {
+func ListarUltimosValoresReais(coin string, count int) []models.PriceResponse {
 	config.ReadFile()
 
 	var historicos []models.Historico
-	database.DB.Order("created_at DESC").Limit(int(count)).Find(&historicos)
+	database.DB.Order("created_at DESC").Limit(count).Find(&historicos)
 
 	var priceRespAll []models.PriceResponse
 	for _, historico := range historicos {

@@ -47,8 +47,8 @@ func main() {
 					   target_perc                                                              SL,
 					   other_value
 				from findings_history
-				where other_value = 218
-				  and trading_name not in (select coin from bots_real)
+				where other_value >= 200 and other_value < 300
+				  and trading_name not in (select symbol from bots_real)
 				  and status = 'R'
 				  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
 				order by hist_date
