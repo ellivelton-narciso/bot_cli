@@ -194,26 +194,25 @@ func RegistroLogs(basecoin, side, currDateTelegram string, motivo int64, currVal
 
 func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64) {
 	var modo bool
-	modo = false
+	modo = true
 	if modo {
 		config.ReadFile()
-		basecoin := coin
-		count := contagemRows(basecoin, currDateTelegram)
+		count := contagemRows(coin, currDateTelegram)
 
 		switch count {
 		case 0:
 			query := "INSERT INTO " + config.TabelaHist + " (coin, side, entryPrice, started_at, price_tg, date_tg) VALUES (?, ?, ?, ?, ?, ?)"
-			result := database.DB.Exec(query, basecoin, side, entryPrice, started, currValueTelegram, currDateTelegram)
+			result := database.DB.Exec(query, coin, side, entryPrice, started, currValueTelegram, currDateTelegram)
 			if result.Error != nil {
-				WriteError("Erro ao inserir dados iniciais da moeda na tabela "+config.TabelaHist+": ", result.Error, basecoin)
+				WriteError("Erro ao inserir dados iniciais da moeda na tabela "+config.TabelaHist+": ", result.Error, coin)
 				return
 			}
 			break
 		default:
 			query := "UPDATE " + config.TabelaHist + " SET " + parametros + " = ?, " + parametros + "_time = NOW(), " + parametros + "_roi = ?, coin = ?, side = ?, entryPrice = ?, started_at = ?, price_tg = ?, date_tg = ?, trigger_tg = -1 WHERE coin = ? AND started_at = ? AND side = ? AND " + parametros + " IS NULL"
-			result := database.DB.Exec(query, currValue, roi, basecoin, side, entryPrice, started, currValueTelegram, currDateTelegram, basecoin, started, side)
+			result := database.DB.Exec(query, currValue, roi, coin, side, entryPrice, started, currValueTelegram, currDateTelegram, coin, started, side)
 			if result.Error != nil {
-				WriteError("Erro ao atualizar os parâmetros na tabela "+config.TabelaHist+": ", result.Error, basecoin)
+				WriteError("Erro ao atualizar os parâmetros na tabela "+config.TabelaHist+": ", result.Error, coin)
 				return
 			}
 			break
@@ -223,7 +222,7 @@ func Historico(coin, side, started, parametros, currDateTelegram string, currVal
 
 func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
 	var modo bool
-	modo = false
+	modo = true
 	if modo {
 		count := contagemRows(coin, started)
 
@@ -240,7 +239,7 @@ func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
 
 func contagemRows(basecoin, started string) int {
 	var modo bool
-	modo = false
+	modo = true
 	if modo {
 		query := "SELECT COUNT(*) FROM " + config.TabelaHist + " WHERE coin = ? AND date_tg = ?"
 
@@ -267,30 +266,8 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 			   target_perc                                                              SL,
 			   other_value
 		from findings_history
-		where ((other_value = 31 AND trend_value < 0 AND trading_name in (
-			SELECT trading_name
-			FROM (
-					 SELECT TIPO_ALERTA,
-							trend,
-							trading_name,
-							SUM(CASE WHEN status = 'W' THEN 1 ELSE 0 END) AS total_win,
-							COUNT(1)                                      AS total
-					 FROM (
-							  SELECT  ROUND(other_value)                                       AS TIPO_ALERTA,
-									  trading_name,
-									  (CASE WHEN trend_value > 0 THEN 'LONG' ELSE 'SHORT' END) AS trend,
-									  status
-							  FROM findings_history a
-							  WHERE close_date > NOW() - INTERVAL 4 DAY
-								AND status IN ('W', 'L')
-						  ) x
-					 GROUP BY TIPO_ALERTA, trading_name, trend) z
-			WHERE z.TIPO_ALERTA IN (31)
-			  AND trend = 'SHORT'
-			  AND total > 1
-			  AND ROUND(total_win / total * 100, 2) >= 70
-			)) or (other_value = 51 AND trend_value > 0))
-		  and trading_name not in (select coin from bots_real)
+		where other_value >= 200 and other_value < 300
+		  and trading_name not in (select symbol from bots_real)
 		  and status = 'R'
 		  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
 		order by hist_date
@@ -411,10 +388,12 @@ func GetStop(symbol, start string, tipoAlerta float64) bool {
 	var count int64
 	if err := database.DB.Raw(`
 		SELECT COUNT(*)
-		FROM findings_history fh
-		WHERE fh.other_value ?
-		  AND fh.status IN ('S', 'L', 'W') AND fh.trading_name = ? AND fh.hist_date = ?
-	`, symbol, start, tipoAlerta).Scan(&count).Error; err != nil {
+		FROM findings_history
+		WHERE other_value = ?
+	  	AND status IN ('S', 'L', 'W') 
+		AND trading_name = ? 
+		AND hist_date = ?
+	`, tipoAlerta, symbol, start).Scan(&count).Error; err != nil {
 		log.Println("Erro ao buscar dados da query GetStop():", err)
 		return false
 	}

@@ -68,7 +68,7 @@ func main() {
 
 			for _, bot := range bots {
 				go func(bot models.ResponseQuery) {
-					executarOrdem.OdemExecucao(bot.HistDate, bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey, true)
+					executarOrdem.OdemExecucao(bot.HistDate, bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey, true, bot.CurrValue)
 					return
 				}(bot)
 			}

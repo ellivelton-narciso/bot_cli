@@ -18,33 +18,31 @@ import (
 	"time"
 )
 
-func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey string, enviarDB bool) {
+func OdemExecucao(currentDateTelegram, currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey string, enviarDB bool, currValueTelegram float64) {
 
 	var (
-		currentPrice        float64
-		err                 error
-		currentValue        float64
-		currentPriceStr     string
-		ordemAtiva          bool
-		valueCompradoCoin   float64
-		primeiraExec        bool
-		roiAcumulado        float64
-		allOrders           []models.CryptoPosition
-		ultimosSaida        []models.HistoricoAll
-		now                 time.Time
-		start               time.Time
-		ROI                 float64
-		order               int
-		slSeguro            int
-		roiAcumuladoStr     string
-		roiTempoRealStr     string
-		red                 func(a ...interface{}) string
-		green               func(a ...interface{}) string
-		roiMaximo           float64
-		started             string
-		currValueTelegram   float64
-		currentDateTelegram string
-		resposta            string
+		currentPrice      float64
+		err               error
+		currentValue      float64
+		currentPriceStr   string
+		ordemAtiva        bool
+		valueCompradoCoin float64
+		primeiraExec      bool
+		roiAcumulado      float64
+		allOrders         []models.CryptoPosition
+		ultimosSaida      []models.HistoricoAll
+		now               time.Time
+		start             time.Time
+		ROI               float64
+		order             int
+		slSeguro          int
+		roiAcumuladoStr   string
+		roiTempoRealStr   string
+		red               func(a ...interface{}) string
+		green             func(a ...interface{}) string
+		roiMaximo         float64
+		started           string
+		resposta          string
 		//precision           int
 		forTime       time.Duration
 		priceBuy      float64
@@ -107,12 +105,6 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 		}
 	}
 
-	/*precision, err = util.GetPrecision(currentCoin)
-	if err != nil {
-		precision = 0
-		util.WriteError("Erro ao buscar precisao para converter a moeda: ", err, currentCoin)
-	}*/
-
 	// Encerrar a aplicação graciosamente
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -149,7 +141,7 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 
 	for {
 		if primeiraExec {
-			time.Sleep(1500 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 			primeiraExec = false
 			if !config.Development {
 				allOrders, err = listar_ordens.ListarOrdens(currentCoin, apiKey, secretKey)
@@ -377,12 +369,14 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 			}
 		} else { // Já possui uma ordem ativa
 			ultimosSaidaR = listar_ordens.ListarUltimosValoresReais(currentCoin, 1)
-			currentPrice, err = strconv.ParseFloat(ultimosSaidaR[0].Price, 64)
-			if err != nil {
-				util.WriteError("Erro no array currentPrice: ", err, currentCoin)
-				continue
+			if len(ultimosSaidaR) > 0 {
+				currentPrice, err = strconv.ParseFloat(ultimosSaidaR[0].Price, 64)
+				if err != nil {
+					util.WriteError("Erro no array currentPrice: ", err, currentCoin)
+					continue
+				}
+				currentPriceStr = fmt.Sprint(currentPrice)
 			}
-			currentPriceStr = fmt.Sprint(currentPrice)
 
 			now = time.Now()
 			timeValue := time.Unix(0, now.UnixMilli()*int64(time.Millisecond))
@@ -406,9 +400,7 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 			}
 			util.Write("Valor de entrada ("+posSideText+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+currentPriceStr+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-			if util.GetStop(currentCoin, startTB, tipoAlerta) {
-				util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
-
+			if util.GetStop(currentCoin, currentDateTelegram, tipoAlerta) {
 				roiAcumulado = roiAcumulado + ROI
 				if roiAcumulado > 0 {
 					roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -418,7 +410,7 @@ func OdemExecucao(startTB, currentCoin, posSide, modo string, value, alavancagem
 				order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, enviarDB)
 				if config.Development || order == 200 {
 					util.Write("Ordem encerrada. Recebeu ordem de paragem.: "+roiAcumuladoStr+"\n\n", currentCoin)
-					util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
+					util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 					util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 					err = criar_ordem.RemoverCoinDB(currentCoin, 5*time.Minute)
 					if err != nil {
