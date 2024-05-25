@@ -55,23 +55,23 @@ func CriarOrdem(coin, side, quantity, posSide, apiKey, secretKey string) (int, e
 	return res.StatusCode, nil
 }
 
-func EnviarCoinDB(coin string) {
+func EnviarCoinDB(coin, user string) {
 	var bot models.Bots
-	result := database.DB.Where("coin = ?", coin).First(&bot)
+	result := database.DB.Where("coin = ? AND user = ?", coin, user).First(&bot)
 	if result.RowsAffected > 0 {
 		return
 	}
 
-	if err := database.DB.Create(&models.Bots{Coin: coin}).Error; err != nil {
+	if err := database.DB.Create(&models.Bots{Symbol: coin, User: user}).Error; err != nil {
 		fmt.Println("\n Erro ao inserir coin na DB: ", err)
 	}
 	util.Write("Inserido na tabela bots", coin)
 	return
 }
 
-func RemoverCoinDB(coin string, tempo time.Duration) error {
+func RemoverCoinDB(coin, user string, tempo time.Duration) error {
 	time.Sleep(tempo)
-	if err := database.DB.Where("coin = ?", coin).Delete(&models.Bots{}).Error; err != nil {
+	if err := database.DB.Where("coin = ? AND user = ?", coin, user).Delete(&models.Bots{}).Error; err != nil {
 		util.WriteError("\n Erro ao remover coin na DB: ", err, coin)
 		return err
 	}

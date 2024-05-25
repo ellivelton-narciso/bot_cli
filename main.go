@@ -70,7 +70,7 @@ func main() {
 					  AND total > 1
 					  AND ROUND(total_win / total * 100, 2) >= 70
 					)) or (other_value = 51 AND trend_value > 0) or other_value = 12)
-				  and trading_name not in (select coin from bots_real)
+				  and trading_name not in (select symbol from bots_real)
 				  and status = 'R'
 				  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
 				order by hist_date
@@ -87,18 +87,10 @@ func main() {
 			if control.Modo != "ISOLATED" && control.Modo != "CROSSED" {
 				control.Modo = "ISOLATED"
 			}
+			userKey := config.ApiKey[:5]
 
 			for _, bot := range bots {
-				go func(bot models.ResponseQuery) {
-					if bot.Tend == "SHORT" {
-						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey)
-						return
-
-					} else if bot.Tend == "LONG" {
-						executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey)
-						return
-					}
-				}(bot)
+				go executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey, userKey, true)
 			}
 		}
 
