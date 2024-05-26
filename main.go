@@ -5,6 +5,7 @@ import (
 	"binance_robot/database"
 	"binance_robot/executarOrdem"
 	"binance_robot/models"
+	"binance_robot/util"
 	"log"
 	"time"
 )
@@ -37,48 +38,9 @@ func main() {
 			control.Modo = "ISOLATED"
 		}
 		if control.Ativo == "A" {
+			userKey := config.ApiKey[:5]
 			bots = nil
-			if err := database.DB.Raw(`
-				select hist_date,
-					   trading_name                                                             coin,
-					   case when trend_value > 0 then 'LONG' else 'SHORT' end                   tend,
-					   curr_value,
-					   target_perc                                                              SP,
-					   target_perc                                                              SL,
-					   other_value
-				from findings_history
-				where ((other_value = 31 AND trend_value < 0 AND trading_name in (
-					SELECT trading_name
-					FROM (
-							 SELECT TIPO_ALERTA,
-									trend,
-									trading_name,
-									SUM(CASE WHEN status = 'W' THEN 1 ELSE 0 END) AS total_win,
-									COUNT(1)                                      AS total
-							 FROM (
-									  SELECT  ROUND(other_value)                                       AS TIPO_ALERTA,
-											  trading_name,
-											  (CASE WHEN trend_value > 0 THEN 'LONG' ELSE 'SHORT' END) AS trend,
-											  status
-									  FROM findings_history a
-									  WHERE close_date > NOW() - INTERVAL 4 DAY
-										AND status IN ('W', 'L')
-								  ) x
-							 GROUP BY TIPO_ALERTA, trading_name, trend) z
-					WHERE z.TIPO_ALERTA IN (31)
-					  AND trend = 'SHORT'
-					  AND total > 1
-					  AND ROUND(total_win / total * 100, 2) >= 70
-					)) or (other_value = 51 AND trend_value > 0) or other_value = 12)
-				  and trading_name not in (select symbol from bots_real)
-				  and status = 'R'
-				  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
-				order by hist_date
-			`).Scan(&bots).Error; err != nil {
-				log.Println("Erro ao buscar dados da query:", err)
-				time.Sleep(5 * time.Second)
-				continue
-			}
+			bots = util.BuscarValoresTelegram(userKey)
 			if len(bots) == 0 {
 				time.Sleep(1 * time.Second)
 				continue
@@ -87,7 +49,6 @@ func main() {
 			if control.Modo != "ISOLATED" && control.Modo != "CROSSED" {
 				control.Modo = "ISOLATED"
 			}
-			userKey := config.ApiKey[:5]
 
 			for _, bot := range bots {
 				go executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey, userKey, true)
