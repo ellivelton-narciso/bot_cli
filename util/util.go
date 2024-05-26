@@ -280,7 +280,7 @@ func BuscarValoresTelegram(user string) []models.ResponseQuery {
 			  AND trend = 'SHORT'
 			  AND total > 1
 			  AND ROUND(total_win / total * 100, 2) >= 70
-			)) or (other_value = 51 AND trend_value > 0))
+			)) or (other_value = 51 AND trend_value > 0) or other_value = 12)
 		  and trading_name not in (select symbol from bots_real where user = ?)
 		  and status = 'R'
 		  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
