@@ -245,7 +245,8 @@ func contagemRows(basecoin, started string) int {
 	}
 	return count
 }
-func BuscarValoresTelegram(coin string) []models.ResponseQuery {
+
+func BuscarValoresTelegram(user string) []models.ResponseQuery {
 	var bots []models.ResponseQuery
 
 	if err := database.DB.Raw(`
@@ -280,11 +281,12 @@ func BuscarValoresTelegram(coin string) []models.ResponseQuery {
 			  AND total > 1
 			  AND ROUND(total_win / total * 100, 2) >= 70
 			)) or (other_value = 51 AND trend_value > 0))
-		  and trading_name not in (select coin from bots_real)
+		  and trading_name not in (select symbol from bots_real where user = ?)
 		  and status = 'R'
 		  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
 		order by hist_date
-	`, coin).Scan(&bots).Error; err != nil {
+	`, user).Scan(&bots).Error; err != nil {
+		log.Println("Erro ao buscar moedas para listar.")
 		return []models.ResponseQuery{}
 	}
 
