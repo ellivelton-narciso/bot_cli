@@ -188,9 +188,7 @@ func RegistroLogs(basecoin, side, currDateTelegram string, motivo int64, currVal
 	}
 }
 
-func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64) {
-	var modo bool
-	modo = false
+func Historico(coin, side, started, parametros, currDateTelegram string, currValue, currValueTelegram, entryPrice, roi float64, modo bool) {
 	if modo {
 		config.ReadFile()
 		basecoin := coin
@@ -217,9 +215,7 @@ func Historico(coin, side, started, parametros, currDateTelegram string, currVal
 	}
 }
 
-func EncerrarHistorico(coin, side, started string, currValue, roi float64) {
-	var modo bool
-	modo = false
+func EncerrarHistorico(coin, side, started string, currValue, roi float64, modo bool) {
 	if modo {
 		count := contagemRows(coin, started)
 
