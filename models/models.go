@@ -114,6 +114,26 @@ type Control struct {
 	Modo        string  `gorm:"modo" json:"modo"`
 	NumOrdem    int64   `gorm:"numOrdem" json:"numOrdem"`
 }
+type KlineData struct {
+	OpenTime                 int64   `json:"openTime"`
+	Open                     float64 `json:"open"`
+	High                     float64 `json:"high"`
+	Low                      float64 `json:"low"`
+	Close                    float64 `json:"close"`
+	Volume                   float64 `json:"volume"`
+	CloseTime                int64   `json:"closeTime"`
+	QuoteAssetVolume         float64 `json:"quoteAssetVolume,string"`
+	NumberOfTrades           int     `json:"numberOfTrades"`
+	TakerBuyBaseAssetVolume  float64 `json:"takerBuyBaseAssetVolume,string"`
+	TakerBuyQuoteAssetVolume float64 `json:"takerBuyQuoteAssetVolume,string"`
+}
+
+type VolumeData struct {
+	Volume      float64 `json:"volume"`
+	BuyVolume   float64 `json:"buyVolume"`
+	SellVolume  float64 `json:"sellVolume"`
+	RatioVolume float64 `json:"ratioVolume"`
+}
 
 func (Historico) TableName() string {
 	return "historico"

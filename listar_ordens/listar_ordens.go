@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -111,4 +112,77 @@ func ListarValorAnterior(coin string) (float64, error) {
 		return 0.0, err
 	}
 	return priceFloat, nil
+}
+
+func GetKlineData(symbol, interval string, limit int) ([]models.KlineData, error) {
+	url := fmt.Sprintf("https://fapi.binance.com/fapi/v1/klines?symbol=%s&interval=%s&limit=%d", symbol, interval, limit)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var rawData [][]interface{}
+	if err := json.Unmarshal(body, &rawData); err != nil {
+		fmt.Println(body)
+		return nil, err
+	}
+
+	var klines []models.KlineData
+	for _, data := range rawData {
+		kline := models.KlineData{
+			OpenTime:                 int64(data[0].(float64)),
+			Open:                     StringToFloat64(data[1].(string)),
+			High:                     StringToFloat64(data[2].(string)),
+			Low:                      StringToFloat64(data[3].(string)),
+			Close:                    StringToFloat64(data[4].(string)),
+			Volume:                   StringToFloat64(data[5].(string)),
+			CloseTime:                int64(data[6].(float64)),
+			QuoteAssetVolume:         StringToFloat64(data[7].(string)),
+			NumberOfTrades:           int(data[8].(float64)),
+			TakerBuyBaseAssetVolume:  StringToFloat64(data[9].(string)),
+			TakerBuyQuoteAssetVolume: StringToFloat64(data[10].(string)),
+		}
+		klines = append(klines, kline)
+	}
+	return klines, nil
+}
+
+func GetVolumeData(symbol, interval string, limit int) ([]models.VolumeData, error) {
+	klines, err := GetKlineData(symbol, interval, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var volumeDataList []models.VolumeData
+	for _, kline := range klines {
+		sellVolume := kline.Volume - kline.TakerBuyBaseAssetVolume
+		ratioVolume := 0.0
+		if sellVolume != 0 { // Evita divisão por zero
+			ratioVolume = (kline.TakerBuyBaseAssetVolume + 0.01) / sellVolume
+		}
+
+		volumeData := models.VolumeData{
+			Volume:      kline.Volume,
+			BuyVolume:   kline.TakerBuyBaseAssetVolume,
+			SellVolume:  sellVolume,
+			RatioVolume: ratioVolume,
+		}
+		volumeDataList = append(volumeDataList, volumeData)
+	}
+
+	return volumeDataList, nil
+}
+
+func StringToFloat64(s string) float64 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		log.Fatalf("Erro ao converter string para float64: %v", err)
+	}
+	return f
 }
