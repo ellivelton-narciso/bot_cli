@@ -523,10 +523,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					}
 				}
-				if ROI > 0 && now.Sub(start) >= 2*time.Hour {
+				if (ROI >= takeprofit/4 && now.Sub(start) >= 2*time.Hour) || (ROI >= takeprofit/6 && now.Sub(start) >= 3*time.Hour) || (ROI > 0 && now.Sub(start) >= 6*time.Hour) {
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
-						util.Write("Já se passou 1 hora com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+						util.Write("Já se passou muito tempo com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
 						util.Historico(currentCoin, side, started, "tp2", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI)
 						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI)
 						err = criar_ordem.RemoverCoinDB(currentCoin, user, 5*time.Minute)
@@ -553,7 +553,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					}
 
-				} // Encerrar se tiver aberto a 1H
+				} // Encerrar se tiver aberto a 2H
 
 			} else if side == "SELL" && !primeiraExec {
 				if ROI >= takeprofit {
