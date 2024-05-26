@@ -18,33 +18,31 @@ import (
 	"time"
 )
 
-func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey, user string, enviarDB, historico bool) {
+func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey, user string, enviarDB, historico bool, currValueTelegram float64, currentDateTelegram string) {
 
 	var (
-		currentPrice        float64
-		err                 error
-		currentValue        float64
-		currentPriceStr     string
-		ordemAtiva          bool
-		valueCompradoCoin   float64
-		primeiraExec        bool
-		roiAcumulado        float64
-		allOrders           []models.CryptoPosition
-		ultimosSaida        []models.HistoricoAll
-		now                 time.Time
-		start               time.Time
-		ROI                 float64
-		order               int
-		slSeguro            int
-		roiAcumuladoStr     string
-		roiTempoRealStr     string
-		red                 func(a ...interface{}) string
-		green               func(a ...interface{}) string
-		roiMaximo           float64
-		started             string
-		currValueTelegram   float64
-		currentDateTelegram string
-		resposta            string
+		currentPrice      float64
+		err               error
+		currentValue      float64
+		currentPriceStr   string
+		ordemAtiva        bool
+		valueCompradoCoin float64
+		primeiraExec      bool
+		roiAcumulado      float64
+		allOrders         []models.CryptoPosition
+		ultimosSaida      []models.HistoricoAll
+		now               time.Time
+		start             time.Time
+		ROI               float64
+		order             int
+		slSeguro          int
+		roiAcumuladoStr   string
+		roiTempoRealStr   string
+		red               func(a ...interface{}) string
+		green             func(a ...interface{}) string
+		roiMaximo         float64
+		started           string
+		resposta          string
 		//precision           int
 		forTime     time.Duration
 		priceBuy    float64
