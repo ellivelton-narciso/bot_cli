@@ -246,41 +246,46 @@ func BuscarValoresTelegram(user string) []models.ResponseQuery {
 	var bots []models.ResponseQuery
 
 	if err := database.DB.Raw(`
-		select hist_date,
-			   trading_name                                                             coin,
-			   case when trend_value > 0 then 'LONG' else 'SHORT' end                   tend,
+		WITH data_4_days AS (
+			SELECT ROUND(other_value) AS TIPO_ALERTA,
+				   trading_name,
+				   (CASE WHEN trend_value > 0 THEN 'LONG' ELSE 'SHORT' END) AS trend,
+				   status
+			FROM findings_history
+			WHERE close_date > NOW() - INTERVAL 4 DAY
+			  AND status IN ('W', 'L')
+		), filtered_trading_names AS (
+			SELECT TIPO_ALERTA,
+				   trend,
+				   trading_name,
+				   SUM(CASE WHEN status = 'W' THEN 1 ELSE 0 END) AS total_win,
+				   COUNT(1) AS total
+			FROM data_4_days
+			GROUP BY TIPO_ALERTA, trading_name, trend
+			HAVING (TIPO_ALERTA = 31 AND trend = 'SHORT' AND total > 1 AND ROUND(total_win / total * 100, 2) >= 70)
+				OR (TIPO_ALERTA = 51 AND trend = 'LONG' AND total > 1 AND ROUND(total_win / total * 100, 2) >= 70)
+		)
+		SELECT hist_date,
+			   trading_name AS coin,
+			   CASE WHEN trend_value > 0 THEN 'LONG' ELSE 'SHORT' END AS tend,
 			   curr_value,
-			   target_perc                                                              SP,
-			   target_perc                                                              SL,
+			   target_perc AS SP,
+			   target_perc AS SL,
 			   other_value
-		from findings_history
-		where ((other_value = 31 AND trend_value < 0 AND trading_name in (
-			SELECT trading_name
-			FROM (
-					 SELECT TIPO_ALERTA,
-							trend,
-							trading_name,
-							SUM(CASE WHEN status = 'W' THEN 1 ELSE 0 END) AS total_win,
-							COUNT(1)                                      AS total
-					 FROM (
-							  SELECT  ROUND(other_value)                                       AS TIPO_ALERTA,
-									  trading_name,
-									  (CASE WHEN trend_value > 0 THEN 'LONG' ELSE 'SHORT' END) AS trend,
-									  status
-							  FROM findings_history a
-							  WHERE close_date > NOW() - INTERVAL 4 DAY
-								AND status IN ('W', 'L')
-						  ) x
-					 GROUP BY TIPO_ALERTA, trading_name, trend) z
-			WHERE z.TIPO_ALERTA IN (31)
-			  AND trend = 'SHORT'
-			  AND total > 1
-			  AND ROUND(total_win / total * 100, 2) >= 70
-			)) or (other_value = 51 AND trend_value > 0) or other_value = 12)
-		  and trading_name not in (select symbol from bots_real where user = ?)
-		  and status = 'R'
-		  AND hist_date > (NOW() - INTERVAL 1 MINUTE)
-		order by hist_date
+		FROM findings_history
+		WHERE ((other_value = 31 AND trend_value < 0 AND trading_name IN (
+				   SELECT trading_name
+				   FROM filtered_trading_names
+				   WHERE TIPO_ALERTA = 31 AND trend = 'SHORT'
+			   )) OR (other_value = 51 AND trend_value > 0 AND trading_name IN (
+				   SELECT trading_name
+				   FROM filtered_trading_names
+				   WHERE TIPO_ALERTA = 51 AND trend = 'LONG'
+			   )) OR other_value = 12)
+		  AND trading_name NOT IN (SELECT symbol FROM bots_real WHERE user = ?)
+		  AND status = 'R'
+		  AND hist_date > NOW() - INTERVAL 1 MINUTE
+		ORDER BY hist_date;
 	`, user).Scan(&bots).Error; err != nil {
 		log.Println("Erro ao buscar moedas para listar.")
 		return []models.ResponseQuery{}
