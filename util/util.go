@@ -262,8 +262,8 @@ func BuscarValoresTelegram(user string) []models.ResponseQuery {
 				   COUNT(1) AS total
 			FROM data_4_days
 			GROUP BY TIPO_ALERTA, trading_name, trend
-			HAVING (TIPO_ALERTA = 31 AND trend = 'SHORT' AND total > 1 AND ROUND(total_win / total * 100, 2) >= 70)
-				OR (TIPO_ALERTA = 51 AND trend = 'LONG' AND total > 1 AND ROUND(total_win / total * 100, 2) >= 70)
+			HAVING (TIPO_ALERTA = 31 AND trend = 'SHORT' AND total > 1 AND ROUND(total_win / total * 100, 2) >= 80)
+				OR (TIPO_ALERTA = 51 AND total > 1 AND ROUND(total_win / total * 100, 2) >= 80)
 		)
 		SELECT hist_date,
 			   trading_name AS coin,
@@ -280,7 +280,7 @@ func BuscarValoresTelegram(user string) []models.ResponseQuery {
 			   )) OR (other_value = 51 AND trend_value > 0 AND trading_name IN (
 				   SELECT trading_name
 				   FROM filtered_trading_names
-				   WHERE TIPO_ALERTA = 51 AND trend = 'LONG'
+				   WHERE TIPO_ALERTA = 51
 			   )) OR other_value = 12)
 		  AND trading_name NOT IN (SELECT symbol FROM bots_real WHERE user = ?)
 		  AND status = 'R'
