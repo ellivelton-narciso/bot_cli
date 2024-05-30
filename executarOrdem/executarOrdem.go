@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey, user string, enviarDB, historico bool, currValueTelegram float64, currentDateTelegram string) {
+func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, takeprofit, tipoAlerta float64, apiKey, secretKey, user string, enviarDB, historico bool, currValueTelegram float64, currentDateTelegram, urlDisc string) {
 
 	var (
 		currentPrice      float64
@@ -407,6 +407,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				} else {
 					roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 				}
+				err := util.SendMessageToDiscord("Take Profit atingido. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+				if err != nil {
+					util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+				}
 				order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 				if config.Development || order == 200 {
 					util.Write("Ordem encerrada. Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -459,6 +463,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						}
+						err := util.SendMessageToDiscord("Take Profit atingido. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+						}
 						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 						if config.Development || order == 200 {
 							util.Write("Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -497,6 +505,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
+					err := util.SendMessageToDiscord("StopLoss atingido. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+					if err != nil {
+						util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+					}
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -522,6 +534,16 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 				}
 				if (ROI >= takeprofit/4 && now.Sub(start) >= 2*time.Hour) || (ROI >= takeprofit/6 && now.Sub(start) >= 3*time.Hour) || (ROI > 0 && now.Sub(start) >= 6*time.Hour) {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					err := util.SendMessageToDiscord("Já se passou muito tempo com a operação aberta. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+					if err != nil {
+						util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+					}
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("Já se passou muito tempo com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -569,11 +591,19 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					if volume1h[0].RatioVolume <= 1/1.5 && volume5m[0].RatioVolume <= 1/2 {
 						condicaoLossOK = true
 						util.Write("Volume desfavorável para continuar. Encerrando para evitar perdas maiores.", currentCoin)
+						err := util.SendMessageToDiscord("Volume desfavorável para continuar. Encerrando para evitar perdas maiores.", urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+						}
 
 					}
 					if roiMaximo <= 0 {
 						condicaoLossOK = true
 						util.Write("Possível tendencia contrária identificado. ", currentCoin)
+						err := util.SendMessageToDiscord("Possível tendencia contrária identificado.", urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+						}
 					}
 					if condicaoLossOK {
 						roiAcumulado = roiAcumulado + ROI
@@ -581,6 +611,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						err := util.SendMessageToDiscord("Ordem encerrada. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
 						}
 						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 						if config.Development || order == 200 {
@@ -631,6 +665,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						}
+						err := util.SendMessageToDiscord("Take Profit atingido. Roi acumulado:  "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+						}
 						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 						if config.Development || order == 200 {
 							util.Write("Ordem encerrada - Take Profit atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -670,6 +708,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					} else {
 						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 					}
+					err := util.SendMessageToDiscord("StopLoss atingido. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+					if err != nil {
+						util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+					}
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -701,6 +743,16 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 				}
 				if (ROI >= takeprofit/4 && now.Sub(start) >= 2*time.Hour) || (ROI >= takeprofit/6 && now.Sub(start) >= 3*time.Hour) || (ROI > 0 && now.Sub(start) >= 6*time.Hour) {
+					roiAcumulado = roiAcumulado + ROI
+					if roiAcumulado > 0 {
+						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					} else {
+						roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+					}
+					err := util.SendMessageToDiscord("Já se passou muito tempo com a operação aberta. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+					if err != nil {
+						util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+					}
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
 						util.Write("Já se passou muito tempo com a operação aberta. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
@@ -750,10 +802,18 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					if volume1h[0].RatioVolume >= 1.5 && volume5m[0].RatioVolume >= 2 {
 						condicaoLossOK = true
 						util.Write("Volume desfavorável para continuar. Encerrando para evitar perdas maiores.", currentCoin)
+						err := util.SendMessageToDiscord("Volume desfavorável para continuar. Encerrando para evitar perdas maiores.", urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+						}
 					}
 					if roiMaximo <= 0 {
 						condicaoLossOK = true
 						util.Write("Possível tendencia contrária identificado. ", currentCoin)
+						err := util.SendMessageToDiscord("Possível tendencia contrária identificado. ", urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
+						}
 					}
 					if condicaoLossOK {
 						roiAcumulado = roiAcumulado + ROI
@@ -761,6 +821,10 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
 						} else {
 							roiAcumuladoStr = red(fmt.Sprintf("%.4f", roiAcumulado) + "%")
+						}
+						err := util.SendMessageToDiscord("Ordem encerrada. Roi acumulado: "+fmt.Sprintf("%.4f", roiAcumulado), urlDisc)
+						if err != nil {
+							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
 						}
 						order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 						if config.Development || order == 200 {

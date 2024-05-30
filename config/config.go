@@ -23,6 +23,7 @@ type UserStruct struct {
 	Alavancagem float64 `json:"alavancagem"`
 	Tabela      string  `json:"tabela"`
 	TabelaHist  string  `json:"tabelaHist"`
+	UrlDisc     string  `json:"urlDisc"`
 }
 
 var (
@@ -39,6 +40,7 @@ var (
 	Alavancagem float64
 	Tabela      string
 	TabelaHist  string
+	UrlDisc     string
 	UserConfig  UserStruct
 )
 
@@ -63,6 +65,7 @@ func ReadFile() {
 	Pass = UserConfig.Pass
 	Port = UserConfig.Port
 	DBname = UserConfig.Dbname
+	UrlDisc = UserConfig.UrlDisc
 
 }
 

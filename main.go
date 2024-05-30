@@ -51,7 +51,7 @@ func main() {
 			}
 
 			for _, bot := range bots {
-				go executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey, userKey, true, true, bot.CurrValue, bot.HistDate)
+				go executarOrdem.OdemExecucao(bot.Coin, bot.Tend, control.Modo, control.Valor, control.Alavancagem, bot.SL, bot.SP, bot.OtherValue, config.ApiKey, config.SecretKey, userKey, true, true, bot.CurrValue, bot.HistDate, "")
 			}
 		}
 
