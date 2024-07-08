@@ -94,11 +94,11 @@ func ListarUltimosValoresReais(coin string, count int64) []models.PriceResponse 
 	return priceResp
 }
 
-func ListarValorAnterior(coin string) (float64, error) {
+func ListarValorAnterior(coin, interval string) (float64, error) {
 	config.ReadFile()
 
 	var historicos []models.HistoricoAll
-	query := `SELECT * FROM hist_trading_values WHERE trading_name = ? AND hist_date >= NOW() - INTERVAL 5 MINUTE ORDER BY hist_date LIMIT 1`
+	query := `SELECT * FROM hist_trading_values WHERE trading_name = ? AND hist_date >= NOW() - INTERVAL ` + interval + ` MINUTE ORDER BY hist_date LIMIT 1`
 
 	err := database.DB.Raw(query, coin).Scan(&historicos).Error
 	if err != nil {

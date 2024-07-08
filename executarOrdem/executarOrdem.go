@@ -72,8 +72,8 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	if enviarDB {
 		criar_ordem.EnviarCoinDB(currentCoin, user)
 	}
-	stop = (stop * alavancagem) + (fee * 2)
-	takeprofit = (takeprofit * alavancagem) - (fee * 2)
+	stop = (stop * alavancagem) + fee
+	takeprofit = (takeprofit * alavancagem) - fee
 
 	if !config.Development {
 		err = util.DefinirAlavancagem(currentCoin, alavancagem, apiKey, secretKey)
@@ -247,7 +247,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						}
 					}
 					util.Historico(currentCoin, "BUY", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI, historico)
-					forTime = 5 * time.Second
+					forTime = 15 * time.Second
 					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin, apiKey)
 					q := valueCompradoCoin * (1 - (((stop / alavancagem) / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(precisionSymbol))) / math.Pow(10, float64(precisionSymbol))
@@ -349,7 +349,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						}
 					}
 					util.Historico(currentCoin, "SELL", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI, historico)
-					forTime = 5 * time.Second
+					forTime = 15 * time.Second
 					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin, apiKey)
 					q := valueCompradoCoin * (1 + (((stop / alavancagem) / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(precisionSymbol))) / math.Pow(10, float64(precisionSymbol))
@@ -399,8 +399,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 			}
 			util.Write("Valor de entrada ("+posSideText+"): "+fmt.Sprint(valueCompradoCoin)+" | "+formattedTime+" | "+fmt.Sprint(currentPrice)+" | Roi acumulado: "+roiTempoRealStr, currentCoin)
 
-			// Condição que fecha 2x o TakeProfit
-			if canClose && ROI < takeprofit || ROI >= takeprofit*2+(fee) {
+			if canClose && ROI < takeprofit {
 				roiAcumulado = roiAcumulado + ROI
 				if roiAcumulado > 0 {
 					roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -439,15 +438,13 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					return
 				}
-			} else {
-				canClose = false
 			}
 
 			if side == "BUY" && !primeiraExec {
 				// Deverá descer 3 consecutivos para fechar.
 				if ROI >= takeprofit {
 					canClose = true
-					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
+					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin, "1")
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
 					if err != nil {
 						util.WriteError("Erro ao buscar valor anterior para compararar: ", err, currentCoin)
@@ -498,7 +495,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 
 				}
-				if ROI <= 0-(stop) {
+				if ROI <= 0-(stop) || (now.Sub(start) >= 5*time.Minute && ROI < 0) {
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -651,7 +648,8 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 
 			} else if side == "SELL" && !primeiraExec {
 				if ROI >= takeprofit {
-					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin)
+					canClose = true
+					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin, "1")
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
 					if err != nil {
 						util.WriteError("Erro ao buscar valor anterior para compararar: ", err, currentCoin)
@@ -701,7 +699,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						}
 					}
 				}
-				if ROI <= 0-(stop) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+				if ROI <= 0-(stop) || (now.Sub(start) >= 5*time.Minute && ROI < 0) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -782,7 +780,6 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					}
 				}
-
 				if ROI <= 0-(stop/2) && now.Sub(start) >= 5*time.Minute {
 					var condicaoLossOK bool
 					condicaoLossOK = false
@@ -880,32 +877,31 @@ func encerrarOrdem(currentCoin, side, posSide string, currentValue float64, apiK
 				}
 			}
 		}
-	}
-
-	// Encerra a Ordem
-	var opposSide string
-	if side == "BUY" {
-		opposSide = "SELL"
-	} else if side == "SELL" {
-		opposSide = "BUY"
-	}
-	order, err := criar_ordem.CriarOrdem(currentCoin, opposSide, fmt.Sprint(currentValue), posSide, apiKey, secretKey)
-	if err != nil {
-		if enviarDB {
-			err = criar_ordem.RemoverCoinDB(currentCoin, user, 3*time.Minute)
-			if err != nil {
-				util.WriteError("Erro ao remover coin da Tabela, ", err, currentCoin)
-			}
+		// Encerra a Ordem
+		var opposSide string
+		if side == "BUY" {
+			opposSide = "SELL"
+		} else if side == "SELL" {
+			opposSide = "BUY"
 		}
-		return 0
+		order, err := criar_ordem.CriarOrdem(currentCoin, opposSide, fmt.Sprint(currentValue), posSide, apiKey, secretKey)
+		if err != nil {
+			if enviarDB {
+				err = criar_ordem.RemoverCoinDB(currentCoin, user, 3*time.Minute)
+				if err != nil {
+					util.WriteError("Erro ao remover coin da Tabela, ", err, currentCoin)
+				}
+			}
+			return 0
+		}
+		// Cancela o StopLoss Seguro que foi criado.
+		_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
+		if err != nil {
+			msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
+			fmt.Println(msgError)
+			util.WriteError(msgError, err, currentCoin)
+		}
+		return order
 	}
-
-	// Cancela o StopLoss Seguro que foi criado.
-	_, err = criar_ordem.CancelarSLSeguro(currentCoin, apiKey, secretKey)
-	if err != nil {
-		msgError := "Erro ao cancelar Stop Loss Seguro de " + currentCoin
-		fmt.Println(msgError)
-		util.WriteError(msgError, err, currentCoin)
-	}
-	return order
+	return 0
 }
