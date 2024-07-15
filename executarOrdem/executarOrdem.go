@@ -49,6 +49,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 		canClose    bool
 		side        string
 		posSideText string
+		newWin      float64
 	)
 
 	red = color.New(color.FgHiRed).SprintFunc()
@@ -61,6 +62,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	forTime = 900 * time.Millisecond
 	roiMaximo = 0
 	canClose = false
+	newWin = 0
 
 	side = strings.ToUpper(side)
 	if posSide == "LONG" {
@@ -349,7 +351,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						}
 					}
 					util.Historico(currentCoin, "SELL", started, "tp1", currentDateTelegram, valueCompradoCoin, currValueTelegram, valueCompradoCoin, ROI, historico)
-					forTime = 15 * time.Second
+					forTime = 1 * time.Minute
 					precisionSymbol, err := util.GetPrecisionSymbol(currentCoin, apiKey)
 					q := valueCompradoCoin * (1 + (((stop / alavancagem) / 100) * 1.1))
 					stopSeguro := math.Round(q*math.Pow(10, float64(precisionSymbol))) / math.Pow(10, float64(precisionSymbol))
@@ -442,7 +444,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 
 			if side == "BUY" && !primeiraExec {
 				// Deverá descer 3 consecutivos para fechar.
-				if ROI >= takeprofit {
+				if ROI >= takeprofit || (ROI > 0 && now.Sub(start) >= 10*time.Minute) {
 					canClose = true
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin, "1")
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
@@ -450,10 +452,13 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						util.WriteError("Erro ao buscar valor anterior para compararar: ", err, currentCoin)
 						continue
 					}
-					util.Historico(currentCoin, side, started, "tp1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI, historico)
+
+					if newWin == 0 || currentPrice > newWin {
+						newWin = currentPrice
+					}
 
 					util.Write("Valor atual: "+currentPriceStr+" Valor 5min atrás: "+ultimoMinutoStr, currentCoin)
-					if currentPrice < ultimoMinuto {
+					if currentPrice < ultimoMinuto || currentPrice < newWin {
 						roiAcumulado = roiAcumulado + ROI
 						if roiAcumulado > 0 {
 							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -495,7 +500,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 
 				}
-				if ROI <= 0-(stop) || (now.Sub(start) >= 5*time.Minute && ROI < 0) {
+				if ROI <= 0-(stop) || (ROI < 0 && now.Sub(start) >= 10*time.Minute) {
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -570,7 +575,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					}
 				}
-				if ROI <= 0-(stop/2) && now.Sub(start) >= 5*time.Minute {
+				if ROI <= 0-(stop/2) && now.Sub(start) >= 20*time.Minute {
 					var condicaoLossOK bool
 					condicaoLossOK = false
 
@@ -647,7 +652,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				}
 
 			} else if side == "SELL" && !primeiraExec {
-				if ROI >= takeprofit {
+				if ROI >= takeprofit || (ROI > 0 && now.Sub(start) >= 10*time.Minute) {
 					canClose = true
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin, "1")
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
@@ -656,7 +661,12 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						continue
 					}
 					util.Write("Valor atual: "+currentPriceStr+" Valor 5min atrás: "+ultimoMinutoStr, currentCoin)
-					if currentPrice > ultimoMinuto {
+
+					if newWin == 0 || currentPrice < newWin {
+						newWin = currentPrice
+					}
+
+					if currentPrice > ultimoMinuto || currentPrice > newWin {
 						roiAcumulado = roiAcumulado + ROI
 						if roiAcumulado > 0 {
 							roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -699,7 +709,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						}
 					}
 				}
-				if ROI <= 0-(stop) || (now.Sub(start) >= 5*time.Minute && ROI < 0) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+				if ROI <= 0-(stop) || (ROI < 0 && now.Sub(start) >= 10*time.Minute) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -780,7 +790,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						return
 					}
 				}
-				if ROI <= 0-(stop/2) && now.Sub(start) >= 5*time.Minute {
+				if ROI <= 0-(stop/2) && now.Sub(start) >= 20*time.Minute {
 					var condicaoLossOK bool
 					condicaoLossOK = false
 
