@@ -74,8 +74,8 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 	if enviarDB {
 		criar_ordem.EnviarCoinDB(currentCoin, user)
 	}
-	stop = (stop * alavancagem) + fee
-	takeprofit = (takeprofit * alavancagem) - fee
+	stop = (stop * alavancagem)
+	takeprofit = (takeprofit * alavancagem)
 
 	if !config.Development {
 		err = util.DefinirAlavancagem(currentCoin, alavancagem, apiKey, secretKey)
@@ -444,7 +444,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 
 			if side == "BUY" && !primeiraExec {
 				// Deverá descer 3 consecutivos para fechar.
-				if ROI >= takeprofit || (ROI > 0 && now.Sub(start) >= 10*time.Minute) {
+				if ROI >= takeprofit || (ROI > 0 && now.Sub(start) >= 2*time.Minute) || canClose {
 					canClose = true
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin, "1")
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
@@ -500,7 +500,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 
 				}
-				if ROI <= 0-(stop) || (ROI < 0 && now.Sub(start) >= 10*time.Minute) {
+				if ROI <= 0-(stop) || (ROI < 0 && now.Sub(start) >= 2*time.Minute) {
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
@@ -652,7 +652,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 				}
 
 			} else if side == "SELL" && !primeiraExec {
-				if ROI >= takeprofit || (ROI > 0 && now.Sub(start) >= 10*time.Minute) {
+				if ROI >= takeprofit || (ROI > 0 && now.Sub(start) >= 2*time.Minute) || canClose {
 					canClose = true
 					ultimoMinuto, err := listar_ordens.ListarValorAnterior(currentCoin, "1")
 					ultimoMinutoStr := fmt.Sprint(ultimoMinuto)
@@ -709,7 +709,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 						}
 					}
 				}
-				if ROI <= 0-(stop) || (ROI < 0 && now.Sub(start) >= 10*time.Minute) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
+				if ROI <= 0-(stop) || (ROI < 0 && now.Sub(start) >= 2*time.Minute) { // TODO: ADICIONAR STOP MOVEL NOVAMENTE  -- roiMaximo-(stop)
 					roiAcumulado = roiAcumulado + ROI
 					if roiAcumulado > 0 {
 						roiAcumuladoStr = green(fmt.Sprintf("%.4f", roiAcumulado) + "%")
