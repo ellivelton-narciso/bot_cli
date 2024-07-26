@@ -60,9 +60,16 @@ func Write(message, coin string) {
 	log.SetOutput(file)
 
 	log.Println(stripColor(message))
+	query := "INSERT INTO logs_trading (trading_name, content) VALUES (?, ?)"
+    result := database.DB.Exec(query, coin, stripColor(message))
+    if result.Error != nil {
+        WriteError("Erro ao inserir logs em logs_trading, motivo: ", result.Error, coin)
+        return
+    }
 	//fmt.Println(message)
 }
 func WriteErrorDB(message string, erro *gorm.DB, coin string) {
+    config.ReadFile()
 	filepath := "logs/log-" + coin
 
 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
