@@ -517,7 +517,12 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
-						util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					    if ROI < 0 && now.Sub(start) >= 2*time.Minute {
+					        util.Write("Ordem encerrada - Roi menor que 0 e atingiu 2 min. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					    } else if ROI <= 0-(stop) {
+					        util.Write("StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					    }
+
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI, historico)
 						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI/alavancagem, historico)
 						err = criar_ordem.RemoverCoinDB(currentCoin, user, 5*time.Minute)
@@ -605,7 +610,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					if roiMaximo <= 0 {
 						condicaoLossOK = true
-						util.Write("Possível tendencia contrária identificado. ", currentCoin)
+						util.Write("Possível tendencia contrária identificado. ROI nunca esteve acima de 0 em mais de 20min", currentCoin)
 						err := util.SendMessageToDiscord("["+currentCoin+"] Possível tendencia contrária identificado.", urlDisc)
 						if err != nil {
 							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
@@ -730,7 +735,12 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					order = encerrarOrdem(currentCoin, side, posSide, currentValue, apiKey, secretKey, user, enviarDB)
 					if config.Development || order == 200 {
-						util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					    if ROI < 0 && now.Sub(start) >= 2*time.Minute {
+					        util.Write("Ordem encerrada - Roi menor que 0 e atingiu 2 min. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					    } else if ROI <= 0-(stop) {
+					        util.Write("Ordem encerrada - StopLoss atingido. Roi acumulado: "+roiAcumuladoStr+"\n\n", currentCoin)
+					    }
+
 						util.Historico(currentCoin, side, started, "sl1", currentDateTelegram, currentPrice, currValueTelegram, valueCompradoCoin, ROI, historico)
 						util.EncerrarHistorico(currentCoin, side, currentDateTelegram, currentPrice, ROI/alavancagem, historico)
 						err = criar_ordem.RemoverCoinDB(currentCoin, user, 5*time.Minute)
@@ -824,7 +834,7 @@ func OdemExecucao(currentCoin, posSide, modo string, value, alavancagem, stop, t
 					}
 					if roiMaximo <= 0 {
 						condicaoLossOK = true
-						util.Write("Possível tendencia contrária identificado. ", currentCoin)
+						util.Write("Possível tendencia contrária identificado. ROI nunca esteve acima de 0 em mais de 20min", currentCoin)
 						err := util.SendMessageToDiscord("Possível tendencia contrária identificado. ", urlDisc)
 						if err != nil {
 							util.WriteError("Erro ao enviar mensagem no discord.", err, currentCoin)
